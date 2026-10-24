@@ -571,9 +571,18 @@
       </ul>
     </div>
 
+    <div class="help-section">
+      <h4>新手引导</h4>
+      <label class="check-inline help-tour-setting">
+        <input type="checkbox" id="help-tour-dismiss">
+        不再自动显示新手引导
+      </label>
+      <p class="modal-hint">取消勾选后，从主页「加载示例原型体验」会重新开始 6 步引导。也可以直接使用下方按钮强制重载示例并开始引导。</p>
+      <button class="btn" id="help-tour-reset" type="button">重新载入示例并开始引导</button>
+    </div>
+
     <p class="help-note">请只加载可信 HTML。原型脚本在沙箱 iframe 中运行；默认保持原型原生交互，按住 Ctrl/Cmd 才进入选中模式。</p>
     <div class="modal-actions">
-      <button class="btn" id="help-tour-reset" type="button">重新载入示例并开始引导</button>
       <button class="btn primary" id="help-close">知道了</button>
     </div>
   </div>
