@@ -44,6 +44,7 @@
   function exportClean() {
     if (!requireDoc()) return;
     Core.download(fileBase() + '.html', cleanHtml(), 'text/html;charset=utf-8');
+    if (PT.tabs) PT.tabs.markSaved();
     Core.toast('已导出干净 HTML', 'success');
   }
 

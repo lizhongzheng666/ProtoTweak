@@ -5,20 +5,20 @@
 *.swo
 *~
 
-# CodeBuddy
-.codebuddy/
-
 # macOS
 .DS_Store
-Thumbs.db
 
-# 测试文件
-测试/
+# 本地浏览器缓存
+.cdp-profile-v14/
+cdp-profile-v14/
+
+# 测试文件与产物
+test/
+test_ui*.png
 
 # 临时文件
 *.log
 *.tmp
 
-# 测试产物
-.cdp-profile/
-test/_ui*.png
+# 压缩包
+*.zip

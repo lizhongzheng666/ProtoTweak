@@ -1,9 +1,8 @@
 <!doctype html>
-<!-- ProtoTweak single-file build - 2026-10-23T14:57:23.424Z -->
+<!-- ProtoTweak single-file build - 2026-10-24T10:36:28.819Z -->
 
 <html lang="zh-CN">
-<head><meta name="generator" content="ProtoTweak single-file build 2026-10-23T14:57:23.424Z">
-
+<head>
 <meta charset="utf-8" />
 <title>ProtoTweak — HTML 原型编辑与批注</title>
 <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -71,6 +70,7 @@
   --topbar-h: 52px;
   --contextbar-h: 36px;
   --statusbar-h: 28px;
+  --tabs-h: 38px;
   --rail-w: 330px;
 
   --z-selection: 30;
@@ -83,6 +83,7 @@
   --z-card: 130;
   --z-modal: 200;
   --z-toast: 300;
+  --z-tour: 400;
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --dur-fast: 120ms;
@@ -134,6 +135,22 @@ button { color: inherit; }
   z-index: 60;
 }
 .brand { display: flex; align-items: center; gap: 7px; flex: 0 0 auto; white-space: nowrap; }
+.pt-home-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast), border-color var(--dur-fast);
+}
+.pt-home-btn svg { width: 18px; height: 18px; }
+.pt-home-btn:hover { background: var(--surface-2); border-color: var(--border); color: var(--text); }
 .brand-mark {
   width: 24px; height: 24px; border-radius: var(--r-md);
   background: linear-gradient(135deg, var(--accent), var(--accent-hover));
@@ -242,7 +259,7 @@ button { color: inherit; }
   font-family: var(--font-mono); color: var(--warn);
   background: var(--warn-soft); border-radius: var(--r-sm); padding: var(--space-1) var(--space-3); font-size: 11px;
 }
-.context-hint { margin-left: auto; color: var(--text-3); font-size: 11px; }
+.context-hint { margin-left: auto; color: var(--text-3); font-size: 11px; max-width: 62%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- Workbench ---------- */
 .workbench { flex: 1; display: flex; min-height: 0; }
@@ -1175,7 +1192,828 @@ kbd {
   .mode-btn { padding: 0 var(--space-3); }
   .btn { padding: 0 var(--space-4); }
 }
+/* ==========================================================================
+   Multi-file tabs / welcome / drag / guided tour
+   ========================================================================== */
+
+.file-chip { display: none; }
+
+.pt-file-tabs {
+  height: var(--tabs-h);
+  flex: 0 0 var(--tabs-h);
+  display: flex;
+  align-items: stretch;
+  padding: 0 var(--space-4) 0 var(--space-7);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  position: relative;
+  z-index: 55;
+}
+.pt-file-tabs[hidden] { display: none !important; }
+.pt-file-tabs-label {
+  display: flex;
+  align-items: center;
+  padding-right: var(--space-4);
+  color: var(--text-4);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .1em;
+}
+.pt-file-tabs-scroll {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.pt-file-tabs-scroll::-webkit-scrollbar { display: none; }
+.pt-file-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 100px;
+  max-width: 220px;
+  padding: 0 var(--space-2) 0 var(--space-4);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 11.5px;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--dur-fast), color var(--dur-fast), border-color var(--dur-fast);
+}
+.pt-file-tab:hover { background: var(--surface); color: var(--text-2); }
+.pt-file-tab.is-active {
+  background: var(--surface);
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+.pt-file-tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 170px;
+}
+.pt-file-tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-4);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  flex: 0 0 18px;
+}
+.pt-file-tab-close:hover { background: var(--danger-soft); color: var(--danger); }
+.pt-file-tab-add {
+  width: 34px;
+  flex: 0 0 34px;
+  align-self: center;
+  height: 30px;
+  margin-left: var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--dur-fast), border-color var(--dur-fast), color var(--dur-fast);
+}
+.pt-file-tab-add:hover { border-color: var(--border); background: var(--surface-3); color: var(--text); }
+.pt-file-tab-add[hidden] { display: none !important; }
+
+/* Editorial welcome ------------------------------------------------------- */
+.empty.pt-welcome {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0;
+  background: var(--bg);
+}
+.pt-welcome-inner {
+  width: min(880px, 100%);
+  margin: 0 auto;
+  padding: var(--space-12);
+}
+.pt-welcome-eyebrow {
+  margin-bottom: var(--space-9);
+  color: var(--text-4);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .12em;
+}
+.pt-welcome h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(48px, 5.2vw, 56px);
+  line-height: 1.02;
+  font-weight: 700;
+  letter-spacing: -.03em;
+}
+.pt-welcome-lead {
+  max-width: 610px;
+  margin: var(--space-9) 0 0;
+  color: var(--text-2);
+  font-size: 18px;
+  line-height: 1.6;
+  letter-spacing: .01em;
+}
+.pt-welcome-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-9);
+  margin-top: var(--space-10);
+}
+.pt-welcome-actions .btn {
+  height: 40px;
+  padding: 0 var(--space-6);
+  font-size: 13px;
+}
+.pt-text-button {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-2);
+  font: 13px/1.8 var(--font-sans);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color var(--dur-fast), border-color var(--dur-fast);
+}
+.pt-text-button:hover { color: var(--text); border-bottom-color: var(--text); }
+.pt-welcome-rule {
+  height: 1px;
+  margin: var(--space-11) 0 var(--space-5);
+  background: var(--border);
+}
+.pt-welcome-steps {
+  display: flex;
+  gap: var(--space-7);
+  color: var(--text-4);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .08em;
+}
+.pt-welcome-hint {
+  margin-top: var(--space-11);
+  color: var(--text-4);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .06em;
+}
+
+/* Drop overlay ------------------------------------------------------------ */
+.pt-drop-overlay {
+  position: absolute;
+  inset: var(--space-4);
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--accent);
+  border-radius: var(--r-xl);
+  background: var(--accent-soft);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+.pt-drop-overlay[hidden] { display: none !important; }
+.pt-drop-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-2);
+  text-align: center;
+}
+.pt-drop-inner strong { color: var(--text); font-size: 15px; font-weight: 600; }
+.pt-drop-inner span { color: var(--text-3); font-size: 12px; }
+.pt-drop-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  color: var(--accent);
+  font-size: 18px;
+}
+
+/* Guided tour ------------------------------------------------------------- */
+.pt-tour {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-tour);
+  pointer-events: none;
+}
+.pt-tour[hidden] { display: none !important; }
+.pt-tour-spotlight {
+  position: fixed;
+  border: 1.5px solid var(--accent);
+  border-radius: var(--r-lg);
+  box-shadow: 0 0 0 9999px rgba(28, 22, 15, .44);
+  pointer-events: none;
+  transition: left var(--dur-base) var(--ease-out), top var(--dur-base) var(--ease-out),
+    width var(--dur-base) var(--ease-out), height var(--dur-base) var(--ease-out);
+}
+.pt-tour-card {
+  position: fixed;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  padding: var(--space-9);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-xl);
+  background: var(--glass-panel);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+  animation: pt-pop var(--dur-base) var(--ease-out);
+}
+.pt-tour-kicker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-5);
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .08em;
+}
+.pt-tour-skip {
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font: 11px var(--font-sans);
+  cursor: pointer;
+}
+.pt-tour-skip:hover { color: var(--text); }
+.pt-tour-card h3 {
+  margin: 0 0 var(--space-3);
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -.01em;
+}
+.pt-tour-card p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+.pt-tour-remember {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+  color: var(--text-3);
+  font-size: 11px;
+  cursor: pointer;
+}
+.pt-tour-remember input { accent-color: var(--accent); }
+.pt-tour-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-5);
+  margin-top: var(--space-6);
+}
+.pt-tour-actions .btn { height: 30px; }
+.pt-tour-actions .pt-text-button:disabled { opacity: .35; cursor: default; }
+.pt-tour-actions .btn:disabled { opacity: .35; }
+
+@media (max-width: 760px) {
+  .pt-welcome-inner { padding: var(--space-9); }
+  .pt-welcome h1 { font-size: 46px; }
+  .pt-welcome-lead { font-size: 16px; }
+  .pt-file-tabs-label { display: none; }
+  .pt-tour-card { width: calc(100vw - 32px); }
+}
+/* ==========================================================================
+   v1.2 welcome dropzone / paste-code dialog
+   ========================================================================== */
+
+.pt-welcome-inner {
+  width: min(900px, 100%);
+  padding: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.pt-welcome-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  align-self: flex-start;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text-3);
+  font-size: 10px;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.pt-welcome-pill strong {
+  color: var(--text);
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+.pt-pill-divider {
+  width: 1px;
+  height: 12px;
+  background: var(--border-strong);
+}
+.pt-welcome h1 {
+  margin: 32px 0 0;
+  font-size: 52px;
+  line-height: 1.02;
+  letter-spacing: -.03em;
+}
+.pt-welcome-lead {
+  max-width: 620px;
+  margin: 20px 0 0;
+  font-size: 18px;
+  line-height: 1.6;
+}
+.pt-dropzone-wrap {
+  position: relative;
+  margin-top: 40px;
+}
+.pt-welcome-dropzone {
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--r-lg);
+  background-color: var(--surface-2);
+  background-image: radial-gradient(circle, var(--dot-grid) 0.7px, transparent 0.7px);
+  background-size: 18px 18px;
+  cursor: pointer;
+  transition: border-color var(--dur-fast), background-color var(--dur-fast);
+}
+.pt-welcome-dropzone:hover,
+.pt-welcome-dropzone.drag-over {
+  border-style: solid;
+  border-color: var(--accent);
+  background-color: var(--accent-soft);
+}
+.pt-welcome-dropzone:hover .pt-dropzone-icon {
+  transform: translateY(-2px);
+  color: var(--accent);
+}
+.pt-dropzone-icon {
+  width: 30px;
+  height: 30px;
+  color: var(--text-3);
+  transition: transform var(--dur-fast), color var(--dur-fast);
+}
+.pt-dropzone-title {
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 500;
+}
+.pt-dropzone-sub {
+  color: var(--text-4);
+  font-size: 11px;
+}
+.pt-paste-code-btn {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-2);
+  font-size: 11px;
+  cursor: pointer;
+  transition: border-color var(--dur-fast), color var(--dur-fast), transform var(--dur-fast);
+}
+.pt-paste-code-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.pt-paste-code-btn:active { transform: scale(.98); }
+.pt-paste-code-btn kbd { height: 15px; min-width: 15px; font-size: 8px; }
+.pt-sample-link {
+  align-self: center;
+  margin-top: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-2);
+  font: 13px/1.6 var(--font-sans);
+  cursor: pointer;
+  transition: color var(--dur-fast);
+}
+.pt-sample-link:hover { color: var(--accent); }
+
+/* Paste-code dialog ------------------------------------------------------- */
+.pt-code-modal {
+  background: rgba(28, 22, 15, .22);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+.pt-code-card {
+  width: min(760px, 92vw);
+  max-height: 88vh;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 24px 72px rgba(28, 22, 15, .18);
+}
+.pt-code-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.pt-code-head h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -.01em;
+}
+.pt-code-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .04em;
+}
+.pt-code-badge.is-html { background: var(--accent-soft); color: var(--accent); }
+.pt-code-close {
+  margin-left: auto;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-3);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.pt-code-close:hover { background: var(--surface-2); color: var(--text); }
+.pt-code-editor {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  height: min(52vh, 420px);
+  min-height: 220px;
+  margin: 16px 20px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.pt-code-lines {
+  margin: 0;
+  padding: 14px 10px 14px 0;
+  border-right: 1px solid var(--border);
+  background: var(--surface-3);
+  color: var(--text-4);
+  font: 11px/20px var(--font-mono);
+  text-align: right;
+  overflow: hidden;
+  user-select: none;
+}
+#code-input {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 14px;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font: 11.5px/20px var(--font-mono);
+  resize: none;
+  white-space: pre;
+  overflow: auto;
+  tab-size: 2;
+}
+#code-input:focus { box-shadow: none; background: transparent; }
+#code-input::placeholder { color: var(--text-4); }
+.pt-code-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 20px 18px;
+}
+.pt-code-hint {
+  margin-right: auto;
+  color: var(--text-4);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+@media (max-width: 760px) {
+  .pt-code-card { width: calc(100vw - 28px); }
+  .pt-code-editor { margin: 12px 14px 0; height: 42vh; }
+  .pt-code-foot { padding: 12px 14px 16px; }
+}
+/* ==========================================================================
+   v1.3 tab import popover / paste modal contrast / sample link
+   ========================================================================== */
+
+.pt-tab-popover {
+  position: fixed;
+  z-index: 120;
+  min-width: 210px;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  animation: pt-pop var(--dur-base) var(--ease-out);
+}
+.pt-tab-popover[hidden] { display: none !important; }
+.pt-tab-popover button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-2);
+  font: 12px var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+.pt-tab-popover button:hover { background: var(--surface-2); color: var(--text); }
+.pt-tab-menu-icon {
+  width: 18px;
+  color: var(--text-4);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-align: center;
+}
+
+/* Pure white code card and higher-contrast editor ------------------------- */
+.pt-code-modal {
+  background: rgba(28, 22, 15, .3) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  backdrop-filter: blur(4px) !important;
+}
+.pt-code-card {
+  background: #ffffff !important;
+  opacity: 1 !important;
+}
+.pt-code-editor {
+  background: #f9f7f3;
+}
+.pt-code-lines {
+  background: #f2efe9;
+  color: #625c55;
+  border-right: 1px solid var(--border);
+}
+#code-input {
+  background: #ffffff;
+  color: #1c1a17;
+  font-family: var(--font-mono);
+  font-variant-ligatures: none;
+  font-variant-numeric: tabular-nums;
+}
+#code-input::placeholder { color: #9a938b; }
+
+/* Sample link as pure text ------------------------------------------------ */
+.pt-sample-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  align-self: center;
+  margin-top: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font: 13px/1.6 var(--font-sans);
+  cursor: pointer;
+}
+.pt-sample-link strong {
+  color: var(--accent);
+  font-weight: 650;
+  transition: color var(--dur-fast), transform var(--dur-fast);
+}
+.pt-sample-link:hover strong {
+  color: var(--accent-hover);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transform: translateX(2px);
+}
+
+/* Tour close button ------------------------------------------------------- */
+.pt-tour-kicker-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.pt-tour-close {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-3);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.pt-tour-close:hover { background: var(--surface-2); color: var(--text); }
+/* v1.3 Tab bar separation / solid popover / home ------------------------- */
+.pt-file-tabs {
+  background: var(--surface-2) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+.pt-tab-popover {
+  background: #ffffff !important;
+  opacity: 1 !important;
+  box-shadow:
+    0 18px 50px rgba(28, 22, 15, .18),
+    0 4px 14px rgba(28, 22, 15, .08),
+    0 0 0 1px rgba(28, 22, 15, .02);
+}
+/* Keep the internal page selector visible even when no pages are detected. */
+.page-switcher.no-pages select {
+  display: inline-block !important;
+  width: 128px !important;
+  color: var(--text-3);
+}
+/* v1.6 mode isolation ------------------------------------------------------ */
+body.preview-mode #rail { display: none !important; }
+body.preview-mode .contextbar { display: none !important; }
+body.preview-inspect #canvas,
+body.preview-inspect #canvas * { cursor: crosshair !important; }
+.sel-label { pointer-events: none !important; }
+/* Form field editor ------------------------------------------------------- */
+.field-stack { display: flex; flex-direction: column; gap: 12px; margin: 16px 0 4px; }
+.field-stack label { display: flex; flex-direction: column; gap: 5px; color: var(--text-2); font-size: 12px; }
+.field-stack input {
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: 12px var(--font-mono);
+}
+.field-stack input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px var(--accent-soft); }
+/* Inspector form / option editors ----------------------------------------- */
+.ins-option-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; max-height: 220px; overflow-y: auto; }
+.ins-option-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) 24px;
+  gap: 4px;
+  align-items: center;
+}
+.ins-option-row input {
+  min-width: 0;
+  height: 27px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: 11px var(--font-sans);
+}
+.ins-option-row button {
+  width: 24px;
+  height: 27px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text-3);
+  cursor: pointer;
+}
+.ins-option-row button:hover { color: var(--danger); border-color: var(--danger); }
+.ins-option-empty { color: var(--text-3); font-size: 11px; padding: 4px 0 8px; }
+/* Ctrl/Cmd inspect layer: native by default, selection only while held. */
+body.inspect-active #canvas,
+body.inspect-active #canvas * { cursor: crosshair !important; }
+body.preview-mode.inspect-active #selection-layer { display: block !important; }
+/* v1.9 solid popovers / unified menu & modal surfaces ---------------------- */
+.menu,
+.pt-context-menu,
+.pt-tab-popover {
+  background: #ffffff !important;
+  opacity: 1 !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  border: 1px solid var(--border-strong) !important;
+  box-shadow:
+    0 18px 50px rgba(28, 22, 15, .18),
+    0 4px 14px rgba(28, 22, 15, .08),
+    0 0 0 1px rgba(28, 22, 15, .02) !important;
+}
+.menu button,
+.pt-tab-popover button,
+.pt-context-menu button {
+  min-height: 32px;
+  padding: 6px 9px;
+  border-radius: var(--r-sm);
+  font: 12px/1.4 var(--font-sans);
+  text-align: left;
+}
+.menu button:hover,
+.pt-tab-popover button:hover,
+.pt-context-menu button:hover {
+  background: var(--surface-2);
+}
+.modal-card {
+  background: #ffffff !important;
+  opacity: 1 !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+.modal-actions .btn {
+  min-height: 32px;
+}
+/* Help guide -------------------------------------------------------------- */
+.help-intro {
+  margin: 6px 0 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.help-section { margin-top: 16px; }
+.help-section h4 {
+  margin: 0 0 8px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+.help-steps {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.help-steps li { margin: 3px 0; }
+.help-steps strong { color: var(--text); }
+.help-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.8;
+}
+#help-modal .modal-card { max-height: 88vh; overflow-y: auto; }
+/* Help tour preference ---------------------------------------------------- */
+.help-tour-setting {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 9px 0 3px;
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+.help-tour-setting input { accent-color: var(--accent); }
+#help-tour-reset { margin-top: 9px; }
 </style>
+<meta name="generator" content="ProtoTweak single-file build 2026-10-24T10:36:28.819Z">
 </head>
 <body class="no-doc pt-app">
 
@@ -1183,18 +2021,20 @@ kbd {
   <div class="brand">
     <span class="brand-mark">P</span>
     <span class="brand-text">ProtoTweak</span>
+    <button class="pt-home-btn" id="btn-home" type="button" title="关闭所有并返回主页" aria-label="关闭所有并返回主页">
+      <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <path d="M3.5 9.2 10 3.8l6.5 5.4V16a1 1 0 0 1-1 1h-3.2v-4.2H7.7V17H4.5a1 1 0 0 1-1-1V9.2Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+      </svg>
+    </button>
     <span class="brand-tag">Prototype Review</span>
   </div>
   <div class="file-chip" id="file-chip" title="当前文件">未打开文件</div>
   <div class="page-switcher" id="page-switcher" hidden>
-    <span class="page-switcher-label">页面</span>
-    <select id="page-select" aria-label="页面切换" title="切换编辑页面"></select>
+    <span class="page-switcher-label">内部页面</span>
+    <select id="page-select" aria-label="当前文件内部页面切换" title="切换当前文件的内部页面"></select>
     <button class="icon-btn" id="page-rescan" type="button" title="重新扫描页面">↻</button>
-    <button class="icon-btn" id="page-add" type="button" title="手动添加页面选择器">＋</button>
   </div>
   <div class="actions">
-    <button class="btn" id="btn-import">导入</button>
-
     <div class="menu-wrap">
       <button class="btn" id="btn-insert" title="插入元素">+ 插入 <span class="caret">▾</span></button>
       <div class="menu" id="insert-menu" hidden>
@@ -1217,7 +2057,7 @@ kbd {
 
     <div class="mode-switch" role="tablist" aria-label="模式切换">
       <button class="mode-btn on" id="mode-edit" data-mode="edit" title="编辑模式">编辑</button>
-      <button class="mode-btn" id="mode-preview" data-mode="preview" title="预览模式">预览</button>
+      <button class="mode-btn" id="mode-preview" data-mode="preview" title="预览模式；按住 Ctrl/Cmd 点击元素可穿透编辑">预览</button>
       <button class="mode-btn annotate-mode-btn" id="btn-annotate" type="button" title="批注模式">
         批注 <span class="count" id="annot-count">0</span>
       </button>
@@ -1253,6 +2093,23 @@ kbd {
   </div>
 </header>
 
+<div class="pt-file-tabs" id="file-tabs" hidden>
+  <span class="pt-file-tabs-label">FILES</span>
+  <div class="pt-file-tabs-scroll" id="file-tabs-list" role="tablist" aria-label="打开的文件"></div>
+  <button class="pt-file-tab-add" id="file-tab-add" type="button" title="新增文件" aria-label="新增文件">+</button>
+</div>
+
+<div class="pt-tab-popover" id="tab-add-menu" hidden>
+  <button id="tab-add-file" type="button">
+    <span class="pt-tab-menu-icon">＋</span>
+    <span>从本地文件导入</span>
+  </button>
+  <button id="tab-add-paste" type="button">
+    <span class="pt-tab-menu-icon">&lt;/&gt;</span>
+    <span>粘贴 HTML 代码</span>
+  </button>
+</div>
+
 <div class="contextbar" id="table-context" hidden>
   <span class="context-title">表格</span>
   <span class="context-pill" id="table-context-label">0 行 × 0 列</span>
@@ -1263,26 +2120,47 @@ kbd {
   <button class="btn small" data-table-op="col-del">- 列</button>
   <span class="sep"></span>
   <span class="context-cell" id="table-cell-label">—</span>
-  <span class="context-hint">单击整表后拖任意列/行边框调行列 · Alt+单击切换单元格 · 8 向缩放/拖拽整表 · 双击编辑文字</span>
+  <span class="context-hint" id="table-context-hint">整表：拖动/8向缩放 · 单击单元格进入 · 双击单元格编辑</span>
 </div>
 
 <main class="workbench pt-workbench">
   <section class="canvas pt-canvas" id="canvas">
-    <div id="empty-state" class="empty">
-      <div class="empty-card">
-        <div class="empty-eyebrow">AI PROTOTYPE → REVIEW</div>
-        <h1>打开 HTML，直接改</h1>
-        <p>导入 AI 生成的单文件原型，可视化微调、打点批注，最后导出干净版给开发，或带批注评审版给内部。</p>
-        <div class="empty-actions">
-          <button class="btn primary" id="btn-import-2">导入 HTML</button>
-          <button class="btn" id="btn-sample-2">载入示例</button>
+    <div id="empty-state" class="empty pt-welcome">
+      <div class="pt-welcome-inner">
+        <div class="pt-welcome-pill">
+          <strong>PROTOTWEAK</strong>
+          <span class="pt-pill-divider"></span>
+          <span>HTML PROTOTYPE WORKBENCH</span>
         </div>
-        <ul class="empty-tips">
-          <li>单击选中，双击文字编辑；拖拽移动不破坏文档流</li>
-          <li>选中表格后可增删行列、拖边框调列宽/行高</li>
-          <li>开启「✏️ 批注」后点击元素打点，批注不会进入干净导出</li>
-          <li>刷新页面会自动恢复上次草稿和批注</li>
-        </ul>
+
+        <h1>把 HTML 原型<br />变成可编辑的作品。</h1>
+        <p class="pt-welcome-lead">打开一个 HTML 文件，直接选中、修改、批注，然后导出干净代码或评审版本。</p>
+
+        <div class="pt-dropzone-wrap">
+          <div class="pt-welcome-dropzone" id="welcome-dropzone" tabindex="0" role="button" aria-label="浏览或拖拽导入 HTML">
+            <svg class="pt-dropzone-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <path d="M16 21V6m0 0-5 5m5-5 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M7 20v3.5A2.5 2.5 0 0 0 9.5 26h13a2.5 2.5 0 0 0 2.5-2.5V20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <div class="pt-dropzone-title">点击浏览文件或拖拽至此</div>
+            <div class="pt-dropzone-sub">支持单个 HTML 文件，或包含资源的整个项目文件夹</div>
+          </div>
+          <button class="pt-paste-code-btn" id="welcome-paste-code" type="button">
+            粘贴代码 <kbd>Ctrl+V</kbd>
+          </button>
+        </div>
+
+        <button class="pt-sample-link" id="btn-sample-2" type="button">
+          <span>想先看看效果？</span>
+          <strong>加载示例原型体验 →</strong>
+        </button>
+      </div>
+    </div>
+    <div id="pt-drop-overlay" class="pt-drop-overlay" hidden>
+      <div class="pt-drop-inner">
+        <div class="pt-drop-icon">↓</div>
+        <strong>松开以导入 HTML</strong>
+        <span>支持单个文件或整个文件夹</span>
       </div>
     </div>
     <iframe id="stage" title="原型编辑区" sandbox="allow-same-origin allow-scripts allow-modals" hidden></iframe>
@@ -1420,6 +2298,28 @@ kbd {
             </div>
           </details>
 
+          <details class="grp" id="inspector-field-group" hidden>
+            <summary>表单字段</summary>
+            <div class="row">
+              <label>默认值</label>
+              <input id="ins-field-value" type="text" autocomplete="off" placeholder="value">
+            </div>
+            <div class="row">
+              <label>提示文本</label>
+              <input id="ins-field-placeholder" type="text" autocomplete="off" placeholder="placeholder">
+            </div>
+          </details>
+
+          <details class="grp" id="inspector-select-group" hidden>
+            <summary>选项管理</summary>
+            <div class="row">
+              <label>提示词</label>
+              <input id="ins-select-placeholder" type="text" autocomplete="off" placeholder="请选择…">
+            </div>
+            <div id="ins-option-list" class="ins-option-list"></div>
+            <button class="btn small" id="ins-option-add" type="button">+ 添加选项</button>
+          </details>
+
           <details class="grp" id="inspector-table-group" hidden>
             <summary>表格</summary>
             <div class="row">
@@ -1427,6 +2327,7 @@ kbd {
               <label>单元格</label><span class="readonly-value" id="ins-table-cell">—</span>
             </div>
             <div class="row btns">
+              <button class="btn small" id="op-select-table">选择整表</button>
               <button class="btn small" data-table-op="row-add">+ 行</button>
               <button class="btn small" data-table-op="row-del">- 行</button>
               <button class="btn small" data-table-op="col-add">+ 列</button>
@@ -1541,10 +2442,6 @@ kbd {
 <div class="modal" id="import-modal" hidden>
   <div class="modal-card">
     <h3>导入 HTML</h3>
-    <div class="import-tabs">
-      <button class="tab on" data-import-tab="file">上传文件</button>
-      <button class="tab" data-import-tab="paste">粘贴代码</button>
-    </div>
     <div class="tab-pane" data-import-pane="file">
       <div class="dropzone" id="dropzone">
         <div class="dz-icon">📄</div>
@@ -1554,12 +2451,27 @@ kbd {
         <div class="dz-hint">支持 .html / .htm，UTF-8 编码；文件内容不会上传。</div>
       </div>
     </div>
-    <div class="tab-pane" data-import-pane="paste" hidden>
-      <textarea id="paste-area" placeholder="粘贴完整 HTML 或片段…"></textarea>
-    </div>
     <div class="modal-actions">
       <button class="btn" id="import-cancel">取消</button>
-      <button class="btn primary" id="paste-ok" hidden>载入</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal pt-code-modal" id="paste-code-modal" hidden>
+  <div class="modal-card pt-code-card" role="dialog" aria-modal="true" aria-labelledby="paste-code-title">
+    <div class="pt-code-head">
+      <h3 id="paste-code-title">预览并确认代码</h3>
+      <span class="pt-code-badge" id="code-type-badge">纯文本</span>
+      <button class="pt-code-close" id="paste-code-close" type="button" aria-label="关闭">×</button>
+    </div>
+    <div class="pt-code-editor">
+      <pre class="pt-code-lines" id="code-lines" aria-hidden="true">1</pre>
+      <textarea id="code-input" spellcheck="false" wrap="off" placeholder="在此粘贴完整 HTML 或代码片段…"></textarea>
+    </div>
+    <div class="pt-code-foot">
+      <span class="pt-code-hint">Ctrl+Enter 确认导入</span>
+      <button class="btn" id="paste-code-cancel" type="button">取消</button>
+      <button class="btn primary" id="paste-code-confirm" type="button">确认导入</button>
     </div>
   </div>
 </div>
@@ -1614,24 +2526,71 @@ kbd {
 
 <!-- 帮助 -->
 <div class="modal" id="help-modal" hidden>
-  <div class="modal-card">
-    <h3>快捷键与说明</h3>
-    <div class="help-grid">
-      <div><kbd>单击</kbd><span>选中元素；表格单击选整表</span></div>
-      <div><kbd>Alt + 单击</kbd><span>指定表格单元格</span></div>
-      <div><kbd>双击</kbd><span>编辑文字；下拉框编辑选项</span></div>
-      <div><kbd>拖拽</kbd><span>移动元素，不破坏文档流</span></div>
-      <div><kbd>Ctrl/Cmd + C / V / X</kbd><span>复制 / 粘贴 / 剪切选中元素</span></div>
-      <div><kbd>Ctrl/Cmd + D</kbd><span>快速复制选中元素</span></div>
-      <div><kbd>Ctrl/Cmd + Z / Y</kbd><span>撤销 / 重做</span></div>
-      <div><kbd>Ctrl/Cmd + S</kbd><span>保存干净 HTML</span></div>
-      <div><kbd>Ctrl/Cmd + Shift + S</kbd><span>另存为</span></div>
-      <div><kbd>方向键 / Shift + 方向键</kbd><span>微调 1px / 10px</span></div>
-      <div><kbd>Delete / Backspace</kbd><span>删除选中元素（二次确认）</span></div>
-      <div><kbd>右键</kbd><span>复制、删除、编辑文字、添加批注</span></div>
-      <div><kbd>Esc</kbd><span>关闭卡片 / 退出批注 / 取消选中</span></div>
+  <div class="modal-card wide">
+    <h3>操作指南与快捷键</h3>
+    <p class="help-intro">默认状态下原型保持真实交互。按住 Ctrl（Mac 为 Cmd）再点击，才进入 ProtoTweak 的选中与编辑模式。</p>
+
+    <div class="help-section">
+      <h4>开始编辑</h4>
+      <ol class="help-steps">
+        <li><strong>导入：</strong>拖入 HTML / 文件夹，或点击 Tab 栏 <kbd>+</kbd> 选择文件、粘贴代码。</li>
+        <li><strong>选中：</strong>按住 <kbd>Ctrl/Cmd</kbd>，画布出现十字准星；点击元素出现实线蓝框与右侧面板。</li>
+        <li><strong>编辑：</strong>右侧面板修改文字、样式、尺寸；表单和下拉框在对应分组中编辑。</li>
+        <li><strong>拖动：</strong>选中元素后直接拖动；8 个手柄缩放。表格先选中整表，再拖动或整体缩放。</li>
+        <li><strong>交付：</strong>批注后导出干净 HTML、评审版、JSON 或 Markdown。</li>
+      </ol>
     </div>
-    <p class="help-note">请只加载可信 HTML。原型脚本在沙箱 iframe 中运行，预览与编辑模式都会保留原型的页面内交互。</p>
+
+    <div class="help-section">
+      <h4>选中与表格</h4>
+      <div class="help-grid">
+        <div><kbd>Ctrl/Cmd + 单击</kbd><span>选中元素；表格先选中整表</span></div>
+        <div><kbd>整表选中后再单击单元格</kbd><span>进入具体单元格</span></div>
+        <div><kbd>双击单元格</kbd><span>编辑单元格文字</span></div>
+        <div><kbd>Esc（单元格）</kbd><span>返回整表；再按取消选中</span></div>
+        <div><kbd>Alt + 单击表格</kbd><span>直接选中整表</span></div>
+        <div><kbd>单击原型其他位置</kbd><span>取消当前选中与编辑</span></div>
+        <div><kbd>右侧“选择整表”</kbd><span>从单元格回到整表状态</span></div>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <h4>快捷键</h4>
+      <div class="help-grid">
+        <div><kbd>Ctrl/Cmd + Z</kbd><span>撤销</span></div>
+        <div><kbd>Ctrl/Cmd + Y</kbd><span>重做</span></div>
+        <div><kbd>Ctrl/Cmd + C / V / X</kbd><span>复制 / 粘贴 / 剪切选中元素</span></div>
+        <div><kbd>Ctrl/Cmd + D</kbd><span>快速复制选中元素</span></div>
+        <div><kbd>Ctrl/Cmd + S</kbd><span>保存干净 HTML</span></div>
+        <div><kbd>Ctrl/Cmd + Shift + S</kbd><span>另存为</span></div>
+        <div><kbd>方向键 / Shift + 方向键</kbd><span>微调 1px / 10px</span></div>
+        <div><kbd>Delete / Backspace</kbd><span>删除选中元素（二次确认）</span></div>
+        <div><kbd>Esc</kbd><span>关闭弹窗 / 退出批注 / 取消选中</span></div>
+        <div><kbd>右键</kbd><span>复制、删除、编辑文字、添加批注</span></div>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <h4>页面、Tab 与批注</h4>
+      <ul class="help-list">
+        <li>顶部「内部页面」控制当前 HTML 原型内部页面，与文件 Tab 完全独立。</li>
+        <li>文件 Tab 切换会清空当前选中并加载该文件的批注数据。</li>
+        <li>批注模式下点击元素只创建批注点；右侧切到「批注」查看列表。</li>
+        <li>批注支持标记已解决、JSON 导入导出；批注数据保存在 localStorage。</li>
+      </ul>
+    </div>
+
+    <div class="help-section">
+      <h4>新手引导</h4>
+      <label class="check-inline help-tour-setting">
+        <input type="checkbox" id="help-tour-dismiss">
+        不再自动显示新手引导
+      </label>
+      <p class="modal-hint">取消勾选后，从主页「加载示例原型体验」会重新开始 6 步引导。也可以直接使用下方按钮强制重载示例并开始引导。</p>
+      <button class="btn" id="help-tour-reset" type="button">重新载入示例并开始引导</button>
+    </div>
+
+    <p class="help-note">请只加载可信 HTML。原型脚本在沙箱 iframe 中运行；默认保持原型原生交互，按住 Ctrl/Cmd 才进入选中模式。</p>
     <div class="modal-actions">
       <button class="btn primary" id="help-close">知道了</button>
     </div>
@@ -1649,7 +2608,30 @@ kbd {
   </div>
 </div>
 
-<input id="file-input" type="file" accept=".html,.htm,text/html" hidden>
+<div class="pt-tour" id="pt-tour" hidden>
+  <div class="pt-tour-spotlight" id="pt-tour-spotlight"></div>
+  <div class="pt-tour-card" id="pt-tour-card" role="dialog" aria-modal="true" aria-labelledby="pt-tour-title">
+    <div class="pt-tour-kicker">
+      <span id="pt-tour-step">1 / 6</span>
+      <span class="pt-tour-kicker-actions">
+        <button id="pt-tour-skip" class="pt-tour-skip" type="button">跳过</button>
+        <button id="pt-tour-close" class="pt-tour-close" type="button" aria-label="关闭引导">×</button>
+      </span>
+    </div>
+    <h3 id="pt-tour-title">双击文字，或右侧调样式。</h3>
+    <p id="pt-tour-desc"></p>
+    <label class="pt-tour-remember">
+      <input type="checkbox" id="pt-tour-remember" />
+      以后不再显示引导
+    </label>
+    <div class="pt-tour-actions">
+      <button id="pt-tour-prev" class="pt-text-button" type="button">上一步</button>
+      <button id="pt-tour-next" class="btn primary" type="button">下一步</button>
+    </div>
+  </div>
+</div>
+
+<input id="file-input" type="file" accept=".html,.htm,text/html" multiple hidden>
 <input id="annotation-file-input" type="file" accept=".json,application/json" hidden>
 <input id="image-file-input" type="file" accept="image/*" hidden>
 
@@ -2009,6 +2991,7 @@ kbd {
   const PREFS_KEY = 'prototweak_annotation_prefs_v1';
   const FALLBACK_SESSION_KEY = 'prototweak_session_fallback_v1';
   const FALLBACK_VERSIONS_PREFIX = 'prototweak_versions_fallback_v1:';
+  const TOUR_KEY = 'prototweak_tour_v1';
   const MAX_VERSIONS = 30;
   const LEGACY_ANNOTATION_PREFIX = 'wb.annotations.v1:';
   const LEGACY_KEYS = {
@@ -2206,6 +3189,11 @@ kbd {
         warnOnce('ann-save', '批注保存失败，请导出 JSON。');
         return false;
       }
+    },
+
+    removeAnnotations(docId) {
+      if (!docId) return;
+      lsRemove(Storage.annotationKey(docId));
     },
 
     loadPrefs() {
@@ -2406,10 +3394,626 @@ kbd {
       }
       const last = lsGet(LAST_DOC_KEY);
       if (last === docId) lsRemove(LAST_DOC_KEY);
+    },
+
+    loadTour() {
+      const raw = lsGet(TOUR_KEY);
+      if (!raw) return { dismissed: false };
+      try {
+        const data = JSON.parse(raw);
+        return { dismissed: !!data.dismissed, dismissedAt: data.dismissedAt || '' };
+      } catch (e) {
+        return { dismissed: false };
+      }
+    },
+
+    saveTour(data) {
+      const value = {
+        dismissed: !!(data && data.dismissed),
+        dismissedAt: data && data.dismissed ? (data.dismissedAt || Core.nowIso()) : ''
+      };
+      lsSet(TOUR_KEY, JSON.stringify(value));
+      return value;
+    },
+
+    resetTour() {
+      lsRemove(TOUR_KEY);
     }
   };
 
   PT.storage = Storage;
+})();
+
+</script>
+<script data-pt-inlined="sample.js">
+/* ProtoTweak — warm-paper, two-page sample with built-in teaching */
+(function () {
+  'use strict';
+
+  const PT = window.PT;
+
+  const html = `<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ProtoTweak 示例 · 双页面导览</title>
+<style>
+  :root {
+    --paper: #fdfcfa;
+    --surface: #ffffff;
+    --surface-2: #f7f5f1;
+    --ink: #1c1a17;
+    --muted: #6b645c;
+    --faint: #9a938b;
+    --line: rgba(28, 22, 15, .1);
+    --line-strong: rgba(28, 22, 15, .16);
+    --accent: #5b6ad0;
+    --accent-soft: rgba(91, 106, 208, .09);
+    --dot: #d4753d;
+    --dot-soft: rgba(212, 117, 61, .1);
+    --ok: #3f7d58;
+    --ok-soft: rgba(63, 125, 88, .11);
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    --mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: .01em;
+  }
+
+  .shell {
+    width: min(1060px, 100%);
+    margin: 0 auto;
+    padding: 42px 60px 90px;
+  }
+
+  .topline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font: 600 11px var(--mono);
+    letter-spacing: .13em;
+    text-transform: uppercase;
+  }
+
+  .brand-mark {
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: var(--accent);
+    color: #fff;
+    font: 700 12px var(--sans);
+    letter-spacing: 0;
+  }
+
+  .brand-sub { color: var(--faint); font-weight: 500; }
+
+  .page-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 3px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface-2);
+  }
+
+  .page-tab {
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--muted);
+    padding: 5px 10px;
+    font: 11px var(--sans);
+    cursor: pointer;
+  }
+
+  .page-tab:hover { color: var(--ink); }
+  .page-tab.active {
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: 0 1px 2px rgba(28, 22, 15, .06);
+  }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .eyebrow {
+    margin: 34px 0 14px;
+    color: var(--faint);
+    font: 10px var(--mono);
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    margin: 0;
+    max-width: 880px;
+    font-size: clamp(46px, 6.2vw, 74px);
+    line-height: 1.02;
+    font-weight: 700;
+    letter-spacing: -.055em;
+  }
+
+  .hero-hint {
+    margin: 18px 0 0;
+    color: var(--faint);
+    font-size: 12.5px;
+    line-height: 1.7;
+  }
+
+  .section {
+    margin-top: 48px;
+    padding-top: 30px;
+    border-top: 1px solid var(--line);
+  }
+
+  .section-kicker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+    color: var(--faint);
+    font: 10px var(--mono);
+    letter-spacing: .13em;
+    text-transform: uppercase;
+  }
+
+  .section-kicker::before {
+    content: "";
+    width: 16px;
+    height: 1px;
+    background: var(--dot);
+  }
+
+  h2 {
+    margin: 0 0 10px;
+    font-size: 20px;
+    line-height: 1.3;
+    letter-spacing: -.015em;
+  }
+
+  .module-grid {
+    display: grid;
+    grid-template-columns: 1.08fr .92fr;
+    gap: 36px;
+    align-items: start;
+  }
+
+  .hint {
+    margin: 0;
+    color: var(--faint);
+    font-size: 12px;
+    line-height: 1.75;
+  }
+
+  .form-card {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 20px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(28, 22, 15, .035);
+  }
+
+  .field-label {
+    display: block;
+    margin-bottom: 7px;
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  input, select {
+    width: 100%;
+    height: 38px;
+    border: 1px solid var(--line-strong);
+    border-radius: 7px;
+    background: var(--paper);
+    color: var(--ink);
+    padding: 0 11px;
+    font: 13px var(--sans);
+    outline: none;
+  }
+
+  input::placeholder { color: var(--faint); }
+  input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  .table-card {
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(28, 22, 15, .035);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  th, td {
+    padding: 11px 13px;
+    text-align: left;
+    border-bottom: 1px solid var(--line);
+  }
+
+  th {
+    color: var(--faint);
+    font: 10px var(--mono);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    background: var(--surface-2);
+  }
+
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover td { background: rgba(28, 22, 15, .018); }
+
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .status::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .status.ok { background: var(--ok-soft); color: var(--ok); }
+  .status.pending { background: var(--dot-soft); color: var(--dot); }
+
+  .cta-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 38px;
+    padding: 0 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: 7px;
+    background: var(--surface);
+    color: var(--ink);
+    font: 12px var(--sans);
+    cursor: pointer;
+  }
+
+  .btn:hover { border-color: var(--faint); background: var(--surface-2); }
+
+  .btn.primary {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 1px 2px rgba(91, 106, 208, .28);
+  }
+
+  .btn.primary:hover { background: #4d5bc0; border-color: #4d5bc0; }
+
+  .cta-hint { margin-top: 12px; }
+
+  .keys {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.8;
+  }
+
+  .keys span { display: inline-flex; align-items: center; gap: 5px; }
+
+  kbd {
+    display: inline-flex;
+    align-items: center;
+    min-height: 19px;
+    padding: 1px 5px;
+    border: 1px solid var(--line-strong);
+    border-bottom-color: rgba(28, 22, 15, .24);
+    border-radius: 4px;
+    background: var(--surface-2);
+    color: var(--ink);
+    font: 10px var(--mono);
+    white-space: nowrap;
+  }
+
+  .guide-list {
+    margin: 10px 0 0;
+    padding-left: 18px;
+    color: var(--muted);
+    font-size: 11.5px;
+    line-height: 1.9;
+  }
+
+  .guide-list li { margin: 3px 0; }
+  .guide-list strong { color: var(--ink); font-weight: 600; }
+  .guide-list code { color: var(--accent); font: 10px var(--mono); }
+
+  .annotate-box {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-top: 48px;
+    padding: 17px 18px;
+    border: 1px solid rgba(212, 117, 61, .28);
+    border-radius: 11px;
+    background: var(--dot-soft);
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.75;
+  }
+
+  .annotate-box strong { color: var(--ink); }
+  .annotate-icon {
+    flex: 0 0 22px;
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--dot);
+    color: #fff;
+    font: 700 11px var(--mono);
+  }
+
+  .center-page {
+    min-height: 72vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 60px 0 20px;
+  }
+
+  .center-page h1 {
+    font-size: clamp(38px, 5.4vw, 64px);
+    max-width: 760px;
+  }
+
+  .center-page p {
+    max-width: 560px;
+    margin: 14px auto 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.9;
+  }
+
+  .center-page .btn { margin-top: 26px; }
+
+  .page-note {
+    margin-top: 22px;
+    color: var(--faint);
+    font: 10px var(--mono);
+    letter-spacing: .04em;
+  }
+
+  @media (max-width: 760px) {
+    .shell { padding: 30px 26px 60px; }
+    .module-grid { grid-template-columns: 1fr; gap: 22px; }
+    .topline { align-items: flex-start; flex-direction: column; }
+    h1 { font-size: 46px; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="topline">
+    <div class="brand">
+      <span class="brand-mark">P</span>
+      <span>ProtoTweak</span>
+      <span class="brand-sub">/ 双页面导览</span>
+    </div>
+    <nav class="page-tabs" aria-label="示例页面">
+      <button class="page-tab active" type="button" data-target="page-home" onclick="switchPage('page-home')">主页</button>
+      <button class="page-tab" type="button" data-target="page-next" onclick="switchPage('page-next')">第二页</button>
+    </nav>
+  </header>
+
+  <section class="page active" data-page="page-home" data-title="主页" id="page-home">
+    <div class="eyebrow">PROTOTWEAK / SAMPLE 01</div>
+    <h1>把 HTML 原型<br />变成可编辑的作品</h1>
+    <p class="hero-hint">💡 双击任何文本即可直接修改内容；或在右侧面板调整字号与颜色。</p>
+    <div class="keys">
+      <span><kbd>Ctrl/Cmd + 单击</kbd> 选中元素</span>
+      <span><kbd>双击</kbd> 编辑文本</span>
+      <span><kbd>Esc</kbd> 取消选中</span>
+    </div>
+
+    <section class="section">
+      <div class="section-kicker">01 / 文本与排版</div>
+      <div class="module-grid">
+        <div>
+          <h2>这是一个真实的标题。</h2>
+          <p class="hint" style="margin-top: 10px;">文字是原型里最重要的信息层级。选中它，右侧可改字号、字重、行高和颜色。</p>
+          <ul class="guide-list">
+            <li><strong>选中：</strong>按住 <kbd>Ctrl/Cmd</kbd> 单击标题，出现蓝框和右侧面板。</li>
+            <li><strong>改文案：</strong>双击标题直接编辑，或改右侧的「文案」。</li>
+            <li><strong>改样式：</strong>右侧调整字号、字重、行高、颜色；输入框实时生效。</li>
+            <li><strong>取消：</strong>单击标题外的任意位置，或按 <kbd>Esc</kbd>。</li>
+          </ul>
+        </div>
+        <p class="hint">💡 双击任何文本即可直接修改内容；或在右侧面板调整字号与颜色。</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-kicker">02 / 表单与选项</div>
+      <div class="module-grid">
+        <div class="form-card">
+          <div>
+            <label class="field-label" for="sample-input">输入字段</label>
+            <input id="sample-input" placeholder="请输入内容..." />
+          </div>
+          <div>
+            <label class="field-label" for="sample-select">选择字段</label>
+            <select id="sample-select">
+              <option value="">请选择…</option>
+              <option value="a">选项 A</option>
+              <option value="b">选项 B</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <p class="hint">💡 编辑表单元素：请按住 Ctrl（Mac 为 Cmd）点击它们，在右侧面板修改选项或提示词。</p>
+          <ul class="guide-list">
+            <li><strong>输入框：</strong><kbd>Ctrl/Cmd + 单击</kbd> 选中 → 右侧改「默认值」和「提示文本」。</li>
+            <li><strong>下拉框：</strong><kbd>Ctrl/Cmd + 单击</kbd> 选中 → 右侧管理选项和提示词。</li>
+            <li><strong>原生操作：</strong>默认不按修饰键时，点击输入框可输入，点击下拉框会展开。</li>
+            <li><strong>快捷键：</strong><kbd>Esc</kbd> 取消选中；<kbd>Ctrl/Cmd + Z</kbd> 撤销修改。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-kicker">03 / 数据表格</div>
+      <p class="hint" style="margin-bottom: 14px;">💡 你可以拖拽表格边缘调整高度/宽度，或直接在右侧修改表格数据。</p>
+      <ol class="guide-list" style="margin-bottom: 16px;">
+        <li><kbd>Ctrl/Cmd + 单击</kbd> 表格任意位置：先选中<strong>整张表格</strong>，出现整表蓝框与 8 个缩放手柄。</li>
+        <li>松开修饰键，按住表格空白/单元格区域拖动：整体移动表格，使用 <code>transform: translate</code>，不会挤动其他元素。</li>
+        <li>拖动 8 个角/边手柄：整体缩放表格。拖动右边框的列手柄：调整列宽；拖动下边框的行手柄：调整行高。</li>
+        <li>松开 Ctrl 后<strong>单击某个单元格</strong>：从整表进入该单元格；再单击其他单元格可切换。</li>
+        <li><strong>双击单元格</strong>：直接编辑单元格文字。</li>
+        <li><kbd>Alt + 单击</kbd> 表格：直接选整表；右侧「选择整表」也可从单元格返回整表。</li>
+        <li><kbd>Esc</kbd>：单元格 → 整表 → 取消选中；<kbd>Ctrl/Cmd + Z</kbd>：撤销移动/缩放/改字。</li>
+      </ol>
+      <div class="table-card">
+        <table>
+          <thead>
+            <tr>
+              <th>名称</th>
+              <th>状态</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>示例项目一</td>
+              <td><span class="status ok">已启用</span></td>
+              <td>这是一个清晰、克制的数据行。</td>
+            </tr>
+            <tr>
+              <td>示例项目二</td>
+              <td><span class="status pending">待处理</span></td>
+              <td>表格支持整表缩放与单元格编辑。</td>
+            </tr>
+            <tr>
+              <td>示例项目三</td>
+              <td><span class="status ok">已启用</span></td>
+              <td>Ctrl 选中整表，再单击进入单元格。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-kicker">04 / 多页面交互</div>
+      <div class="cta-row">
+        <button class="btn primary" type="button" onclick="switchPage('page-next')">进入第二页体验跳转 →</button>
+      </div>
+      <p class="hint cta-hint">💡 在预览模式下点击此按钮可跳转。在编辑模式下想单独选中它，请按住 Ctrl。</p>
+      <div class="keys">
+        <span><kbd>预览 → 单击</kbd> 真实跳转</span>
+        <span><kbd>Ctrl/Cmd + 单击</kbd> 只选中按钮，不跳转</span>
+        <span><kbd>Esc</kbd> 取消选中</span>
+      </div>
+    </section>
+
+    <div class="annotate-box">
+      <span class="annotate-icon">!</span>
+      <div>
+        <strong>想留下修改意见？</strong> 点击顶部【批注】模式，再点击任意元素即可打点留言。
+        <div class="keys" style="margin-top: 6px;">
+          <span><kbd>批注</kbd> 进入模式</span>
+          <span><kbd>单击元素</kbd> 创建批注点</span>
+          <span><kbd>右侧批注</kbd> 填写说明并标记已解决</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" data-page="page-next" data-title="第二页" id="page-next">
+    <div class="center-page">
+      <div class="eyebrow" style="margin-top: 0;">PROTOTWEAK / SAMPLE 02</div>
+      <h1>多页面跳转成功！</h1>
+      <p>你可以随时使用顶部工具栏的【页面选择器】在主页和第二页之间切换编辑。</p>
+      <p>修改满意后，点击右上角的【导出】按钮，即可获得干净的 HTML 代码。</p>
+      <div class="keys" style="justify-content: center;">
+        <span><kbd>页面选择器</kbd> 主页 / 第二页</span>
+        <span><kbd>Ctrl/Cmd + 单击</kbd> 选中元素</span>
+        <span><kbd>导出</kbd> 干净 HTML</span>
+      </div>
+      <button class="btn" type="button" onclick="switchPage('page-home')">← 返回主页</button>
+      <div class="page-note">PROTOTYPE / TWO PAGES / ONE FILE</div>
+    </div>
+  </section>
+</div>
+
+<script>
+  function switchPage(id) {
+    var pages = document.querySelectorAll('.page');
+    for (var i = 0; i < pages.length; i++) {
+      pages[i].classList.toggle('active', pages[i].id === id);
+    }
+    var tabs = document.querySelectorAll('.page-tab');
+    for (var j = 0; j < tabs.length; j++) {
+      tabs[j].classList.toggle('active', tabs[j].getAttribute('data-target') === id);
+    }
+    try { history.replaceState(null, '', '#' + id); } catch (e) { /* ignore */ }
+    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { /* ignore */ }
+    if (window.parent && window.parent.PT && window.parent.PT.pages) {
+      setTimeout(function () { window.parent.PT.pages.refresh(); }, 0);
+    }
+    return false;
+  }
+  window.switchPage = switchPage;
+<\/script>
+</body>
+</html>`;
+
+  PT.sample = {
+    fileName: '示例原型.html',
+    fileKey: 'sample|prototweak-neutral-demo',
+    html
+  };
 })();
 
 </script>
@@ -2438,6 +4042,7 @@ kbd {
   const EDIT_STYLE_ID = '__pt_edit_style';
   const MODE_STYLE_ID = '__pt_mode_style';
   const DRAG_STYLE_ID = '__pt_drag_style';
+  const INSPECT_STYLE_ID = '__pt_inspect_style';
 
   const Stage = {
     init(opts) {
@@ -2507,7 +4112,17 @@ kbd {
       style.textContent = [
         'html { scroll-snap-type: none !important; scroll-behavior: auto !important; }',
         '*, *::before, *::after { pointer-events: auto !important; }',
-        'a { cursor: pointer; }',
+        '*, *::before, *::after {',
+        '  -webkit-user-drag: none !important;',
+        '  user-drag: none !important;',
+        '  -webkit-user-select: none !important;',
+        '  user-select: none !important;',
+        '}',
+        'input, textarea, [contenteditable="true"], [data-pt-ce] {',
+        '  -webkit-user-select: text !important;',
+        '  user-select: text !important;',
+        '}',
+        'a, button, select, input, textarea, label { cursor: pointer; }',
         '.fade-in, .fade-up, .reveal, .animate-on-scroll,',
         '[class*="fade-in"], [class*="fade-up"] {',
         '  opacity: 1 !important;',
@@ -2533,6 +4148,21 @@ kbd {
       if (!style) {
         style = doc.createElement('style');
         style.id = MODE_STYLE_ID;
+        (doc.head || doc.documentElement).appendChild(style);
+      }
+      style.textContent = 'html, body, body * { cursor: crosshair !important; }';
+    },
+
+    setInspectCursor(on) {
+      if (!doc) return;
+      let style = doc.getElementById(INSPECT_STYLE_ID);
+      if (!on) {
+        if (style) style.remove();
+        return;
+      }
+      if (!style) {
+        style = doc.createElement('style');
+        style.id = INSPECT_STYLE_ID;
         (doc.head || doc.documentElement).appendChild(style);
       }
       style.textContent = 'html, body, body * { cursor: crosshair !important; }';
@@ -2670,8 +4300,8 @@ kbd {
       const keepAid = !!(opts && opts.keepAid);
       const clone = doc.documentElement.cloneNode(true);
       const junk = clone.querySelectorAll(
-        '#' + EDIT_STYLE_ID + ', #' + MODE_STYLE_ID + ', #' + DRAG_STYLE_ID +
-        ', #__pt_page_style, #__pt_viewport_style, #__wb_page_style, #__wb_viewport_style, #__wb_edit_style, #__wb_mode_style, #__wb_drag_style,' +
+        '#' + EDIT_STYLE_ID + ', #' + MODE_STYLE_ID + ', #' + DRAG_STYLE_ID + ', #' + INSPECT_STYLE_ID +
+        ', #__pt_page_style, #__pt_viewport_style, #__wb_page_style, #__wb_viewport_style, #__wb_edit_style, #__wb_mode_style, #__wb_drag_style, #__wb_inspect_style,' +
         ' [data-pt-ui], [data-wb-ui], script[data-pt-viewer], script[data-wb-viewer], style[data-pt-viewer], style[data-wb-viewer], #__pt_annotation_data, #__wb_annotation_data'
       );
       junk.forEach((n) => n.remove());
@@ -3347,7 +4977,26 @@ kbd {
     getSelection() { return selectedRef(); },
     getEntries() { return stack.slice(); },
     getIndex() { return index; },
-    hasTransaction() { return !!tx; }
+    hasTransaction() { return !!tx; },
+
+    exportState() {
+      return {
+        stack: stack.slice(),
+        index
+      };
+    },
+
+    importState(state) {
+      tx = null;
+      if (!state || !Array.isArray(state.stack) || !state.stack.length) {
+        History.reset();
+        return false;
+      }
+      stack = state.stack.slice();
+      index = Math.max(0, Math.min(Number(state.index) || 0, stack.length - 1));
+      emitChange();
+      return true;
+    }
   };
 
   function restore(entry, fromEntry, direction) {
@@ -3452,7 +5101,7 @@ kbd {
 
   function onClick(e) {
     if (!ready()) return;
-    if (mode() === 'preview' || annotationMode()) return;
+    if (annotationMode()) return;
     if (PT.pages && PT.pages.isSwitching()) return;
     if (PT.textEdit && PT.textEdit.isEditing()) return;
     if (PT.drag && PT.drag.consumeClickSuppression()) {
@@ -3462,39 +5111,107 @@ kbd {
     }
 
     const target = e.target;
-    if (!target || target.nodeType !== 1) {
-      clear();
-      return;
-    }
+    if (!target || target.nodeType !== 1) return;
     const doc = PT.stage.getDoc();
     if (target === doc.documentElement || target === doc.body) {
-      clear();
+      if (get().element) clear();
       return;
     }
-
-    // Keep the prototype's own click behavior. Only non-interactive canvas
-    // clicks prevent text selection; links/buttons/inputs/selects/onclick
-    // elements must still receive their native click and JS handlers.
-    const interactive = target.closest
-      ? target.closest('a, button, input, select, textarea, label, [contenteditable="true"], [role="button"], [role="link"], [onclick], [data-go], [data-href]')
-      : null;
-    if (!interactive) e.preventDefault();
 
     const table = target.closest ? target.closest('table') : null;
-    if (table) {
-      const cell = target.closest('td, th');
-      // Whole table is the default click target. Alt+click (or a second
-      // explicit cell action) opts into the cell/row-column size mode.
-      if (e.altKey && cell) selectCell(cell);
-      else selectTable(table, cell || contextCellIn(table) || firstCell(table));
+    const cell = target.closest ? target.closest('td, th') : null;
+
+    // Alt+click is a modifier-only affordance for whole-table selection, so
+    // the table can be dragged without fighting cell selection.
+    if (e.altKey && table) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (mode() === 'preview' && PT.app && PT.app.setMode) PT.app.setMode('edit');
+      selectTable(table, cell);
       return;
     }
-    select(target);
+
+    const inspect = (PT.app && PT.app.isFastInspect && PT.app.isFastInspect()) || e.ctrlKey || e.metaKey;
+    if (!inspect) {
+      const current = get().element;
+      if (!current) return;
+
+      // Whole-table selection is a temporary state: the next plain click on a
+      // cell drills into that cell (or its precise descendant for editing).
+      if (isTable() && table && table === current) {
+        if (cell) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          selectCell(cell);
+        }
+        return;
+      }
+
+      // Once inside a table cell, a plain click on another cell moves the
+      // cell selection; clicking outside the table ends editing.
+      if (isCell() && cell && get().table && cell.closest('table') === get().table) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        selectCell(cell);
+        return;
+      }
+
+      // A plain click outside the selected element ends the editing selection
+      // but still lets the prototype receive its native click.
+      if (current !== target && !current.contains(target)) clear();
+      return;
+    }
+    if (PT.app && !PT.app.isFastInspect()) PT.app.setFastInspect(true);
+
+    // Selection only happens while Ctrl/Cmd is held. This is the "inspect"
+    // layer; without it the prototype keeps its native click behavior.
+    e.preventDefault();
+    e.stopImmediatePropagation();
+
+    // Ctrl/Cmd + click anywhere in a table selects the whole table first.
+    // A second Ctrl/Cmd + click on a cell drills into that cell, so users do
+    // not have to release the modifier between the two steps.
+    if (table) {
+      if (cell && ((isTable() && table === get().element) || (isCell() && table === get().table))) {
+        selectCell(cell);
+        return;
+      }
+      if (mode() === 'preview' && PT.app && PT.app.setMode) PT.app.setMode('edit');
+      selectTable(table, cell);
+      return;
+    }
+    const picked = pickTarget(target);
+    if (!picked) clear();
+    else {
+      if (mode() === 'preview' && PT.app && PT.app.setMode) PT.app.setMode('edit');
+      select(picked);
+    }
+  }
+
+  function pickTarget(target) {
+    if (!target || target.nodeType !== 1) return null;
+    const doc = PT.stage.getDoc();
+    if (target === doc.documentElement || target === doc.body) return null;
+    const cell = target.closest ? target.closest('td, th') : null;
+    if (cell) {
+      // Clicking the cell itself selects the cell; clicking text or a control
+      // inside it selects that precise node.
+      return target === cell ? cell : target;
+    }
+    const table = target.closest ? target.closest('table') : null;
+    if (table) return table;
+    return target;
   }
 
   function onOver(e) {
     if (!ready()) return;
-    if (mode() === 'preview') return;
+    if (!PT.app || !PT.app.isFastInspect || !PT.app.isFastInspect()) {
+      if (hovered) {
+        hovered = null;
+        render();
+      }
+      return;
+    }
     const target = e.target;
     if (!target || target.nodeType !== 1) return;
     const doc = PT.stage.getDoc();
@@ -3540,9 +5257,22 @@ kbd {
       selectCell(el, opts);
       return;
     }
+    const cell = el.closest ? el.closest('td, th') : null;
+    if (cell) {
+      // Precise descendant selection inside a table cell (text tag, input,
+      // button, image, etc.). Do not collapse it to the whole table.
+      selected = el;
+      kind = 'element';
+      tableEl = cell.closest('table');
+      contextCell = cell;
+      hovered = null;
+      emitChange(opts);
+      render();
+      return;
+    }
     const table = el.closest ? el.closest('table') : null;
     if (table) {
-      selectTable(table, el.closest('td, th') || firstCell(table), opts);
+      selectTable(table, contextCellIn(table) || firstCell(table), opts);
       return;
     }
     selected = el;
@@ -3631,6 +5361,11 @@ kbd {
   function isTable() { return kind === 'table' && selected && selected.tagName === 'TABLE'; }
   function isCell() { return kind === 'cell'; }
 
+  function clearHover() {
+    hovered = null;
+    render();
+  }
+
   function cellPosition(cell) {
     if (!cell) return null;
     const table = cell.closest('table');
@@ -3659,7 +5394,7 @@ kbd {
       lab.className = 'sel-label ' + (cls.indexOf('cell') !== -1 ? 'cell-label' : '');
       lab.textContent = label;
       lab.style.left = Math.max(0, rect.left) + 'px';
-      lab.style.top = Math.max(0, rect.top - 20) + 'px';
+      lab.style.top = Math.max(0, rect.top - 24) + 'px';
       layer.appendChild(lab);
     }
   }
@@ -3667,7 +5402,8 @@ kbd {
   function render() {
     if (!layer) return;
     layer.innerHTML = '';
-    if (!ready() || mode() === 'preview' || annotationMode()) return;
+    if (!ready() || annotationMode()) return;
+    if (mode() === 'preview' && !(PT.app && PT.app.isFastInspect && PT.app.isFastInspect())) return;
 
     if (hovered && hovered !== selected && !(selected && selected.contains(hovered))) {
       try {
@@ -3699,7 +5435,7 @@ kbd {
         lab.className = 'sel-label cell-label';
         lab.textContent = '单元格 ' + (pos ? 'R' + pos.row + 'C' + pos.col : '');
         lab.style.left = Math.max(0, rect.left) + 'px';
-        lab.style.top = Math.max(0, rect.top - 20) + 'px';
+        lab.style.top = Math.max(0, rect.top - 24) + 'px';
         layer.appendChild(lab);
       } catch (e) { /* ignore */ }
       return;
@@ -3732,6 +5468,7 @@ kbd {
     getKind,
     isTable,
     isCell,
+    clearHover,
     firstCell,
     cellPosition,
     render
@@ -3778,15 +5515,13 @@ kbd {
     const target = e.target;
     if (!target || target.nodeType !== 1) return;
 
-    if (target.tagName === 'SELECT') {
-      e.preventDefault();
-      e.stopPropagation();
-      if (PT.selectEditor) PT.selectEditor.open(target);
+    if (target.tagName === 'SELECT' || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+      // Form controls are edited from the right-side inspector. Do not open a
+      // canvas editor or select them without the Ctrl/Cmd inspect modifier.
       return;
     }
 
     if (!isEditable(target)) {
-      if (PT.selection) PT.selection.select(target);
       return;
     }
 
@@ -4247,7 +5982,8 @@ kbd {
     const cs = win.getComputedStyle(el);
     if (cs.position === 'absolute' || cs.position === 'fixed') return 'absolute';
     if (cs.display === 'inline' && !REPLACED.has(el.tagName)) return 'relative';
-    if (supportsTranslate()) return 'translate';
+    // Use transform: translate() for in-flow elements so dragging never
+    // changes document flow.
     return 'transform';
   }
 
@@ -4259,7 +5995,7 @@ kbd {
   }
 
   function getOffset(el) {
-    if (!el) return { x: 0, y: 0, mode: 'translate' };
+    if (!el) return { x: 0, y: 0, mode: 'transform' };
     const win = el.ownerDocument.defaultView;
     const cs = win.getComputedStyle(el);
     const m = modeFor(el);
@@ -4373,13 +6109,20 @@ kbd {
 
     const target = e.target;
     if (!target || target.nodeType !== 1) return;
-    if (PT.core.isEditableTarget(target)) return;
-    if (target.closest('[contenteditable="true"]')) return;
-
     const sel = PT.selection ? PT.selection.get() : null;
     const targetTable = target.closest ? target.closest('table') : null;
     let dragEl = null;
     let tableDrag = false;
+
+    if (target.closest('[contenteditable="true"]')) return;
+
+    if (PT.core.isEditableTarget(target)) {
+      // Form controls keep native behavior until explicitly selected with
+      // Ctrl/Cmd. Once selected they can be dragged from the canvas.
+      const selectedControl = sel && sel.kind === 'element' && sel.element &&
+        (target === sel.element || sel.element.contains(target));
+      if (!selectedControl) return;
+    }
 
     if (sel && sel.kind === 'cell') return;
 
@@ -4391,15 +6134,17 @@ kbd {
       } else {
         return;
       }
+    } else if (sel && sel.kind === 'element' && sel.element) {
+      // Native interactions stay available unless the user explicitly selected
+      // this element (Ctrl/Cmd click). Dragging is limited to the selection.
+      if (target === sel.element || sel.element.contains(target)) dragEl = sel.element;
+      else return;
     } else if (targetTable) {
       // A click on a table first selects the whole table. Do not start a drag
       // before that state exists; this avoids fighting cell selection.
       return;
-    } else if (sel && sel.kind === 'element' && sel.element) {
-      if (target === sel.element || sel.element.contains(target)) dragEl = sel.element;
-      else dragEl = target;
     } else {
-      dragEl = target;
+      return;
     }
 
     if (!dragEl || dragEl.nodeType !== 1) return;
@@ -4423,9 +6168,10 @@ kbd {
       historyStarted: false
     };
 
-    try {
-      if (dragEl.setPointerCapture) dragEl.setPointerCapture(e.pointerId);
-    } catch (err) { /* ignore */ }
+    // Do not capture the pointer on pointerdown. Capturing a table on a
+    // simple click retargets the subsequent click to the table itself, which
+    // prevents drilling into a cell or double-clicking cell text. Capture is
+    // acquired only after the movement threshold is crossed.
     void sel;
   }
 
@@ -4459,6 +6205,11 @@ kbd {
       }
       pending.state = beginMove(pending.el);
       pending.started = true;
+      try {
+        if (pending.el.setPointerCapture) {
+          pending.el.setPointerCapture(pending.pointerId);
+        }
+      } catch (err) { /* synthetic or unsupported pointer */ }
       if (PT.stage) PT.stage.setInteractionStyle(true, 'grabbing');
     }
 
@@ -4670,6 +6421,12 @@ kbd {
         const cell = currentCell();
         const pos = PT.selection.cellPosition(cell);
         document.getElementById('table-cell-label').textContent = pos ? 'R' + pos.row + 'C' + pos.col : '—';
+        const hint = document.getElementById('table-context-hint');
+        if (hint) {
+          hint.textContent = sel.kind === 'table'
+            ? '整表：拖动/8向缩放 · 单击单元格进入 · 双击单元格编辑'
+            : '单元格：双击编辑 · Esc/右侧「选择整表」返回整表';
+        }
       }
     }
     if (!visible || !sel || (busy() && !sizeDrag)) hideHandles();
@@ -5094,8 +6851,18 @@ kbd {
     const scale = tableScale(table);
     const rowRect = tr.getBoundingClientRect();
     const rowHeight = tr.offsetHeight || (rowRect.height / (scale.y || 1));
+    const win = tr.ownerDocument.defaultView;
     let contentMin = MIN_ROW;
-    Array.from(tr.cells).forEach((c) => { contentMin = Math.max(contentMin, c.scrollHeight + 2); });
+    Array.from(tr.cells).forEach((c) => {
+      const cs = win.getComputedStyle(c);
+      const line = parseFloat(cs.lineHeight) ||
+        (parseFloat(cs.fontSize) || 14) * 1.4;
+      const pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+      const border = (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0);
+      // Use the cell's intrinsic line box, not scrollHeight: scrollHeight grows
+      // with the current inline height and made rows impossible to shrink.
+      contentMin = Math.max(contentMin, Math.ceil(line + pad + border));
+    });
     const point = eventPoint(e);
     sizeDrag = {
       type: 'row',
@@ -5149,6 +6916,17 @@ kbd {
       if (drag.type === 'col') {
         ensureColgroup(drag.table, drag.widths);
         drag.cols = Array.from(drag.table.querySelectorAll('colgroup > col'));
+      }
+      if (drag.type === 'row') {
+        // Row height is applied to the row and every cell. Force border-box so
+        // the assigned height includes padding/borders and can shrink instead
+        // of growing by the cell's box model padding.
+        drag.tr.style.boxSizing = 'border-box';
+        drag.tr.style.minHeight = MIN_ROW + 'px';
+        drag.cells.forEach((cell) => {
+          cell.style.boxSizing = 'border-box';
+          cell.style.minHeight = MIN_ROW + 'px';
+        });
       }
       drag.prepared = true;
     }
@@ -6350,15 +8128,18 @@ kbd {
   let disabled = false;
   let syncing = false;
   let nudgeTimer = null;
+  let optionListEl = null;
 
   const COLOR_PROPS = new Set(['color', 'background-color', 'border-color']);
   const UNITLESS = new Set(['opacity', 'line-height', 'font-weight', 'z-index']);
+  const FIELD_TAGS = new Set(['INPUT', 'TEXTAREA']);
 
   function init() {
     bodyEl = document.getElementById('inspector-body');
     emptyEl = document.getElementById('inspector-empty');
     tagEl = document.getElementById('ins-tag');
     pathEl = document.getElementById('ins-path');
+    optionListEl = document.getElementById('ins-option-list');
 
     document.getElementById('inspector').addEventListener('focusin', onFocusIn);
     document.getElementById('inspector').addEventListener('focusout', onFocusOut);
@@ -6370,6 +8151,15 @@ kbd {
         e.target.blur();
       }
     });
+
+    document.getElementById('ins-option-add').addEventListener('click', addOption);
+    if (optionListEl) {
+      optionListEl.addEventListener('click', (e) => {
+        const btn = e.target.closest && e.target.closest('[data-option-delete]');
+        if (!btn) return;
+        removeOption(Number(btn.dataset.optionDelete));
+      });
+    }
 
     Core.$$('.seg[data-align] button').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -6401,6 +8191,12 @@ kbd {
     document.getElementById('op-down').addEventListener('click', () => moveSibling(1));
     document.getElementById('op-delete').addEventListener('click', deleteSelected);
     document.getElementById('op-clear-style').addEventListener('click', clearStyle);
+    document.getElementById('op-select-table').addEventListener('click', () => {
+      if (!canEdit()) return;
+      const table = PT.selection.getTable();
+      if (!table) return;
+      PT.selection.selectTable(table, PT.selection.getActiveCell());
+    });
 
     Core.on('selection:change', sync);
     Core.on('layout', () => {
@@ -6441,6 +8237,20 @@ kbd {
     } else if (field.id === 'ins-text') {
       fieldBefore = el.textContent || '';
       beginField(field, 'text-content', Core.truncate(Core.normalizeText(fieldBefore), 60));
+    } else if (field.id === 'ins-field-value') {
+      fieldBefore = el.value || '';
+      beginField(field, 'form-value', Core.truncate(fieldBefore, 80));
+    } else if (field.id === 'ins-field-placeholder') {
+      fieldBefore = el.getAttribute('placeholder') || '';
+      beginField(field, 'form-placeholder', Core.truncate(fieldBefore, 80));
+    } else if (field.id === 'ins-select-placeholder') {
+      const ph = el.querySelector('option[data-pt-placeholder]');
+      fieldBefore = ph ? ph.textContent : '';
+      beginField(field, 'select-placeholder', Core.truncate(fieldBefore, 80));
+    } else if (field.dataset.optionField) {
+      const opt = getOption(Number(field.dataset.optionIndex), field.dataset.optionField);
+      fieldBefore = opt ? (field.dataset.optionField === 'value' ? opt.value : opt.textContent) : '';
+      beginField(field, 'option-' + field.dataset.optionField, Core.truncate(fieldBefore, 80));
     } else {
       const prop = field.dataset.css;
       if (!prop) return;
@@ -6489,6 +8299,22 @@ kbd {
       applyText(field);
       return;
     }
+    if (field.id === 'ins-field-value') {
+      applyFieldValue(field);
+      return;
+    }
+    if (field.id === 'ins-field-placeholder') {
+      applyFieldPlaceholder(field);
+      return;
+    }
+    if (field.id === 'ins-select-placeholder') {
+      applySelectPlaceholder(field);
+      return;
+    }
+    if (field.dataset.optionField) {
+      applyOptionField(field);
+      return;
+    }
     if (field.dataset.move) {
       applyMove(field);
       return;
@@ -6513,6 +8339,20 @@ kbd {
     } else if (field.id === 'ins-text') {
       fieldBefore = el.textContent || '';
       beginField(field, 'text-content', Core.truncate(Core.normalizeText(fieldBefore), 60));
+    } else if (field.id === 'ins-field-value') {
+      fieldBefore = el.value || '';
+      beginField(field, 'form-value', Core.truncate(fieldBefore, 80));
+    } else if (field.id === 'ins-field-placeholder') {
+      fieldBefore = el.getAttribute('placeholder') || '';
+      beginField(field, 'form-placeholder', Core.truncate(fieldBefore, 80));
+    } else if (field.id === 'ins-select-placeholder') {
+      const ph = el.querySelector('option[data-pt-placeholder]');
+      fieldBefore = ph ? ph.textContent : '';
+      beginField(field, 'select-placeholder', Core.truncate(fieldBefore, 80));
+    } else if (field.dataset.optionField) {
+      const opt = getOption(Number(field.dataset.optionIndex), field.dataset.optionField);
+      fieldBefore = opt ? (field.dataset.optionField === 'value' ? opt.value : opt.textContent) : '';
+      beginField(field, 'option-' + field.dataset.optionField, Core.truncate(fieldBefore, 80));
     } else if (field.dataset.css) {
       const prop = field.dataset.css;
       fieldBefore = currentStyleValue(el, prop);
@@ -6523,9 +8363,163 @@ kbd {
   function applyText(field) {
     const el = PT.selection.getSelected();
     if (!el) return;
+    if (FIELD_TAGS.has(el.tagName) || el.tagName === 'SELECT') return;
     if (!isLeafText(el)) return;
     el.textContent = field.value;
+    emitFieldEvents(el);
     if (PT.history) PT.history.updateMeta({ after: Core.truncate(field.value, 60) });
+    if (PT.stage) PT.stage.scheduleLayout();
+  }
+
+  function applyFieldValue(field) {
+    const el = PT.selection.getSelected();
+    if (!el || !FIELD_TAGS.has(el.tagName)) return;
+    el.value = field.value;
+    if (el.tagName === 'INPUT') el.setAttribute('value', field.value);
+    else el.textContent = field.value;
+    emitFieldEvents(el);
+    if (PT.history) PT.history.updateMeta({ after: Core.truncate(field.value, 80) });
+    if (PT.stage) PT.stage.scheduleLayout();
+  }
+
+  function applyFieldPlaceholder(field) {
+    const el = PT.selection.getSelected();
+    if (!el || !FIELD_TAGS.has(el.tagName)) return;
+    if (field.value) el.setAttribute('placeholder', field.value);
+    else el.removeAttribute('placeholder');
+    emitFieldEvents(el);
+    if (PT.history) PT.history.updateMeta({ after: Core.truncate(field.value, 80) });
+    if (PT.stage) PT.stage.scheduleLayout();
+  }
+
+  function applySelectPlaceholder(field) {
+    const select = PT.selection.getSelected();
+    if (!select || select.tagName !== 'SELECT') return;
+    const doc = select.ownerDocument;
+    let opt = select.querySelector('option[data-pt-placeholder]');
+    const text = field.value || '';
+
+    if (!text.trim()) {
+      if (opt) {
+        const wasSelected = opt.selected;
+        opt.remove();
+        if (wasSelected && select.options.length) select.selectedIndex = 0;
+      }
+    } else {
+      if (!opt) {
+        opt = doc.createElement('option');
+        opt.dataset.ptPlaceholder = '1';
+        opt.value = '';
+        opt.disabled = true;
+        const hasExplicitSelected = Array.from(select.options).some((o) => o.hasAttribute('selected'));
+        opt.selected = !hasExplicitSelected;
+        select.insertBefore(opt, select.firstChild);
+      }
+      opt.textContent = text;
+      if (select.selectedIndex < 0) opt.selected = true;
+    }
+
+    emitFieldEvents(select);
+    if (PT.history) PT.history.updateMeta({ after: Core.truncate(text, 80) });
+    if (PT.stage) PT.stage.scheduleLayout();
+  }
+
+  function emitFieldEvents(el) {
+    if (!el) return;
+    try {
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    } catch (e) { /* ignore */ }
+  }
+
+  function getOption(index, field) {
+    const select = PT.selection.getSelected();
+    if (!select || select.tagName !== 'SELECT') return null;
+    return select.options[index] || null;
+  }
+
+  function applyOptionField(field) {
+    const opt = getOption(Number(field.dataset.optionIndex), field.dataset.optionField);
+    if (!opt) return;
+    if (field.dataset.optionField === 'value') opt.value = field.value;
+    else opt.textContent = field.value;
+    const select = opt.closest('select');
+    emitFieldEvents(select || opt);
+    if (PT.history) PT.history.updateMeta({ after: Core.truncate(field.value, 80) });
+    if (PT.stage) PT.stage.scheduleLayout();
+  }
+
+  function renderOptions(select) {
+    if (!optionListEl) return;
+    optionListEl.innerHTML = '';
+    const realOptions = select && select.tagName === 'SELECT'
+      ? Array.from(select.options).filter((opt) => !opt.hasAttribute('data-pt-placeholder'))
+      : [];
+    if (!realOptions.length) {
+      const empty = document.createElement('div');
+      empty.className = 'ins-option-empty';
+      empty.textContent = '还没有选项';
+      optionListEl.appendChild(empty);
+      return;
+    }
+    realOptions.forEach((opt) => {
+      const row = document.createElement('div');
+      row.className = 'ins-option-row';
+      const index = Array.prototype.indexOf.call(select.options, opt);
+      const label = document.createElement('input');
+      label.type = 'text';
+      label.value = opt.textContent || '';
+      label.placeholder = '显示文字';
+      label.dataset.optionIndex = String(index);
+      label.dataset.optionField = 'label';
+      const value = document.createElement('input');
+      value.type = 'text';
+      value.value = opt.value;
+      value.placeholder = 'value';
+      value.dataset.optionIndex = String(index);
+      value.dataset.optionField = 'value';
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.textContent = '×';
+      del.title = '删除选项';
+      del.dataset.optionDelete = String(index);
+      row.append(label, value, del);
+      optionListEl.appendChild(row);
+    });
+  }
+
+  function addOption() {
+    const select = PT.selection.getSelected();
+    if (!select || select.tagName !== 'SELECT' || !canEdit()) return;
+    if (PT.history) {
+      PT.history.begin('添加下拉选项', {
+        kind: 'select-options',
+        target: label(select)
+      });
+    }
+    const opt = select.ownerDocument.createElement('option');
+    const n = select.options.length + 1;
+    opt.textContent = '选项 ' + n;
+    opt.value = 'value-' + n;
+    select.appendChild(opt);
+    if (PT.history) PT.history.end(true);
+    renderOptions(select);
+    if (PT.stage) PT.stage.scheduleLayout();
+  }
+
+  function removeOption(index) {
+    const select = PT.selection.getSelected();
+    if (!select || select.tagName !== 'SELECT' || !canEdit()) return;
+    if (!select.options[index]) return;
+    if (PT.history) {
+      PT.history.begin('删除下拉选项', {
+        kind: 'select-options',
+        target: label(select)
+      });
+    }
+    select.options[index].remove();
+    if (PT.history) PT.history.end(true);
+    renderOptions(select);
     if (PT.stage) PT.stage.scheduleLayout();
   }
 
@@ -6600,7 +8594,7 @@ kbd {
       bodyEl.hidden = true;
       emptyEl.hidden = false;
       emptyEl.querySelector('.empty-title').textContent = '未选中元素';
-      emptyEl.querySelector('.empty-desc').textContent = '单击页面元素查看和修改样式。';
+      emptyEl.querySelector('.empty-desc').textContent = '按住 Ctrl/Cmd 单击元素查看和修改样式。';
       return;
     }
     bodyEl.hidden = false;
@@ -6619,8 +8613,35 @@ kbd {
       document.getElementById('ins-text').value = el.textContent || '';
     }
     const textField = document.getElementById('ins-text');
-    textField.disabled = disabled || !isLeafText(el);
-    textField.placeholder = isLeafText(el) ? '输入文案…' : '含子元素，请双击页面内编辑';
+    const textDisabled = FIELD_TAGS.has(el.tagName) || el.tagName === 'SELECT' || !isLeafText(el);
+    textField.disabled = disabled || textDisabled;
+    textField.placeholder = FIELD_TAGS.has(el.tagName) || el.tagName === 'SELECT'
+      ? '表单控件请使用上方字段编辑'
+      : (isLeafText(el) ? '输入文案…' : '含子元素，请双击页面内编辑');
+
+    const fieldGroup = document.getElementById('inspector-field-group');
+    const isField = FIELD_TAGS.has(el.tagName);
+    if (fieldGroup) fieldGroup.hidden = !isField;
+    if (isField) {
+      setVal('ins-field-value', el.value || '');
+      const placeholderField = document.getElementById('ins-field-placeholder');
+      if (placeholderField && document.activeElement !== placeholderField) {
+        placeholderField.value = el.getAttribute('placeholder') || '';
+      }
+    }
+
+    const selectGroup = document.getElementById('inspector-select-group');
+    const isSelect = el.tagName === 'SELECT';
+    if (selectGroup) selectGroup.hidden = !isSelect;
+    if (isSelect) {
+      const ph = el.querySelector('option[data-pt-placeholder]');
+      setVal('ins-select-placeholder', ph ? ph.textContent : '');
+    }
+    if (isSelect && optionListEl && !optionListEl.contains(document.activeElement)) {
+      renderOptions(el);
+    } else if (!isSelect && optionListEl) {
+      optionListEl.innerHTML = '';
+    }
 
     setCssField('font-family', cs.fontFamily || '');
     setCssField('font-size', Math.round(parseFloat(cs.fontSize) || 0));
@@ -6649,10 +8670,12 @@ kbd {
     });
 
     const tableGroup = document.getElementById('inspector-table-group');
-    if (PT.selection.isTable()) {
+    const tableForGroup = PT.selection.getTable();
+    if (PT.selection.isTable() || (PT.selection.isCell() && tableForGroup)) {
       tableGroup.hidden = false;
+      const table = PT.selection.isTable() ? el : tableForGroup;
       const pos = PT.selection.cellPosition(PT.selection.getActiveCell());
-      document.getElementById('ins-table-label').textContent = tableSize(el);
+      document.getElementById('ins-table-label').textContent = tableSize(table);
       document.getElementById('ins-table-cell').textContent = pos ? 'R' + pos.row + 'C' + pos.col : '—';
     } else {
       tableGroup.hidden = true;
@@ -6736,7 +8759,7 @@ kbd {
       const el = PT.selection.getSelected();
       if (el) {
         const textField = document.getElementById('ins-text');
-        if (textField) textField.disabled = !isLeafText(el);
+        if (textField) textField.disabled = FIELD_TAGS.has(el.tagName) || el.tagName === 'SELECT' || !isLeafText(el);
       }
     }
   }
@@ -7235,6 +9258,10 @@ kbd {
         }
       }
     }
+
+    // When nothing is selected, plain text/HTML is treated as pasted code by
+    // the paste-code dialog instead of being inserted at an arbitrary point.
+    if (!PT.selection || !PT.selection.getSelected()) return;
 
     const custom = data.getData(CUSTOM_TYPE) || data.getData(LEGACY_CUSTOM_TYPE);
     const html = custom || data.getData('text/html');
@@ -8083,6 +10110,7 @@ kbd {
       if (PT.app && PT.app.getMode() === 'preview' && !PT.annotations.getShowInPreview()) closeCard({ removeIfEmpty: true });
       renderPins();
       renderBanner();
+      scheduleReposition();
     });
     Core.on('stage:ready', (e) => bindDoc(e.doc));
     Core.on('history:restore', () => closeCard({ removeIfEmpty: false }));
@@ -8410,7 +10438,11 @@ kbd {
     const cw = card.offsetWidth || 340;
     const ch = card.offsetHeight || 300;
     const rail = document.querySelector('.rail');
-    const railLeft = rail && !document.body.classList.contains('no-doc') ? rail.getBoundingClientRect().left : window.innerWidth;
+    const railVisible = !!(rail && rail.offsetParent !== null && !document.body.classList.contains('no-doc'));
+    // In preview mode the rail is display:none, so its rect.left is 0. Using
+    // that as the right edge clamped every annotation card to the far left.
+    // Fall back to the viewport width when the rail is not rendered.
+    const railLeft = railVisible ? rail.getBoundingClientRect().left : window.innerWidth;
     const maxLeft = Math.max(12, railLeft - cw - 14);
     let left;
     let top;
@@ -8626,6 +10658,1134 @@ kbd {
   }
 
   PT.contextMenu = { init, close };
+})();
+
+</script>
+<script data-pt-inlined="tabs.js">
+/* ProtoTweak — multi-file tab manager */
+(function () {
+  'use strict';
+
+  const PT = window.PT;
+  const Core = PT.core;
+  const SESSION_KEY = 'prototweak_tabs_v1';
+  const MAX_TABS = 24;
+
+  let tabs = [];
+  let activeId = null;
+  let switching = false;
+  let persistTimer = null;
+  let pasteSeq = 0;
+
+  function init() {
+    const add = document.getElementById('file-tab-add');
+    if (add) add.addEventListener('click', () => toggleAddMenu(add));
+    const fileItem = document.getElementById('tab-add-file');
+    const pasteItem = document.getElementById('tab-add-paste');
+    if (fileItem) fileItem.addEventListener('click', () => {
+      closeAddMenu();
+      if (PT.app) PT.app.pickFile();
+    });
+    if (pasteItem) pasteItem.addEventListener('click', () => {
+      closeAddMenu();
+      if (PT.pasteCode) PT.pasteCode.open('');
+    });
+    document.addEventListener('mousedown', (e) => {
+      const menu = document.getElementById('tab-add-menu');
+      const add = document.getElementById('file-tab-add');
+      if (!menu || menu.hidden) return;
+      if (menu.contains(e.target) || (add && add.contains(e.target))) return;
+      closeAddMenu();
+    }, true);
+    document.addEventListener('click', (e) => {
+      const menu = document.getElementById('tab-add-menu');
+      const add = document.getElementById('file-tab-add');
+      if (!menu || menu.hidden) return;
+      if (menu.contains(e.target) || (add && add.contains(e.target))) return;
+      closeAddMenu();
+    }, true);
+    document.addEventListener('pointerdown', (e) => {
+      const menu = document.getElementById('tab-add-menu');
+      const add = document.getElementById('file-tab-add');
+      if (!menu || menu.hidden) return;
+      if (menu.contains(e.target) || (add && add.contains(e.target))) return;
+      closeAddMenu();
+    }, true);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeAddMenu();
+    });
+    window.addEventListener('resize', closeAddMenu);
+    window.addEventListener('scroll', closeAddMenu, true);
+    document.addEventListener('keydown', (e) => {
+      if (switching) return;
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === 'w' || e.key === 'W') {
+        if (!activeId) return;
+        e.preventDefault();
+        close(activeId);
+      }
+    });
+    render();
+  }
+
+  function positionAddMenu() {
+    const add = document.getElementById('file-tab-add');
+    const menu = document.getElementById('tab-add-menu');
+    if (!add || !menu) return;
+    const r = add.getBoundingClientRect();
+    menu.hidden = false;
+    menu.style.left = '0px';
+    menu.style.top = '0px';
+    requestAnimationFrame(() => {
+      const box = menu.getBoundingClientRect();
+      const left = Math.max(8, Math.min(r.right - box.width, window.innerWidth - box.width - 8));
+      const top = Math.min(r.bottom + 6, window.innerHeight - box.height - 8);
+      menu.style.left = left + 'px';
+      menu.style.top = top + 'px';
+    });
+  }
+
+  function toggleAddMenu() {
+    const menu = document.getElementById('tab-add-menu');
+    if (!menu) return;
+    if (!menu.hidden) {
+      closeAddMenu();
+      return;
+    }
+    positionAddMenu();
+  }
+
+  function closeAddMenu() {
+    const menu = document.getElementById('tab-add-menu');
+    if (menu) menu.hidden = true;
+  }
+
+  function hash(value) {
+    return Core.hashString(String(value || ''));
+  }
+
+  function fileNameOf(tab) {
+    return tab.fileName || '未命名.html';
+  }
+
+  function displayName(tab) {
+    if (!tab) return '未命名.html';
+    if (tab.displayName) return tab.displayName;
+    const same = tabs.filter((t) => t.fileName === tab.fileName);
+    if (same.length > 1 && tab.relativePath && tab.relativePath !== tab.fileName) return tab.relativePath;
+    return fileNameOf(tab);
+  }
+
+  function currentRailTab() {
+    const el = document.querySelector('.rail-tab.on');
+    return el ? el.dataset.railTab || 'style' : 'style';
+  }
+
+  function makeKey(meta) {
+    return meta.fileKey || ((meta.sourceHash || hash(meta.htmlContent)) + '|' + (meta.relativePath || meta.fileName || 'untitled.html'));
+  }
+
+  function makeDocId(meta, key) {
+    if (meta.docId) return meta.docId;
+    if (meta.sample) return 'sample:' + (meta.sourceHash || hash(meta.htmlContent));
+    return String(meta.sourceHash || hash(meta.htmlContent)) + ':' + (meta.relativePath || meta.fileName || 'untitled.html');
+  }
+
+  function get(id) {
+    return tabs.find((t) => t.id === id) || null;
+  }
+
+  function getActive() {
+    return get(activeId);
+  }
+
+  function getAll() {
+    return tabs.slice();
+  }
+
+  function hasTabs() {
+    return tabs.length > 0;
+  }
+
+  function isSwitching() {
+    return switching;
+  }
+
+  function snapshotTab(tab) {
+    if (!tab || !PT.app || !PT.app.isLoaded()) return;
+    if (PT.textEdit && PT.textEdit.isEditing()) PT.textEdit.finish({ commit: true });
+    if (PT.inspector) PT.inspector.commitActive();
+    if (PT.ops) PT.ops.end();
+    try {
+      tab.htmlContent = PT.stage.serialize({ keepAid: true });
+      tab.annotations = PT.annotations.serializeData();
+      tab.history = PT.history.exportState();
+      tab.railTab = currentRailTab();
+      PT.storage.saveAnnotations(tab.docId, tab.annotations);
+      if (!tab.savedHash) tab.savedHash = hash(tab.htmlContent);
+    } catch (e) {
+      console.warn('[ProtoTweak] tab snapshot failed', e);
+    }
+  }
+
+  function snapshotActive() {
+    const tab = getActive();
+    if (tab) snapshotTab(tab);
+    return tab;
+  }
+
+  function currentHtml(tab) {
+    if (tab && tab.id === activeId && PT.app && PT.app.isLoaded()) {
+      try { return PT.stage.serialize({ keepAid: true }); } catch (e) { /* fall through */ }
+    }
+    return tab ? tab.htmlContent || '' : '';
+  }
+
+  function isDirty(tab) {
+    if (!tab || !tab.savedHash) return false;
+    return hash(currentHtml(tab)) !== tab.savedHash;
+  }
+
+  async function openHtml(meta, opts) {
+    if (!meta || !String(meta.htmlContent || '').trim()) return null;
+    const options = opts || {};
+    const key = makeKey(meta);
+    const existing = tabs.find((t) => t.fileKey === key);
+    if (existing) {
+      await activate(existing.id);
+      if (!options.silent) Core.toast('文件已打开，已切换到对应标签', 'info', 1800);
+      return existing;
+    }
+    if (tabs.length >= MAX_TABS) {
+      Core.toast('最多同时打开 ' + MAX_TABS + ' 个文件', 'error', 2400);
+      return null;
+    }
+    const tab = {
+      id: 'tab_' + Core.shortId(),
+      fileName: meta.fileName || '未命名.html',
+      displayName: meta.displayName || '',
+      pasteIndex: meta.pasteIndex || 0,
+      relativePath: meta.relativePath || meta.fileName || '未命名.html',
+      fileKey: key,
+      htmlContent: String(meta.htmlContent),
+      annotations: meta.annotations || null,
+      history: meta.history || null,
+      railTab: meta.railTab || 'style',
+      docId: makeDocId(meta, key),
+      sourceHash: meta.sourceHash || hash(meta.htmlContent),
+      savedHash: meta.savedHash || '',
+      createdAt: Core.nowIso(),
+      fresh: meta.fresh !== false,
+      sample: !!meta.sample
+    };
+    tabs.push(tab);
+    const ok = await activate(tab.id, { fresh: true });
+    if (!ok) {
+      tabs = tabs.filter((t) => t.id !== tab.id);
+      render();
+    }
+    return ok ? tab : null;
+  }
+
+  async function activate(id, opts) {
+    if (!id || switching) return false;
+    if (PT.app && PT.app.isLoading()) return false;
+    const target = get(id);
+    if (!target) return false;
+    const options = opts || {};
+    if (activeId === id && !options.force) {
+      render();
+      return true;
+    }
+    const previous = getActive();
+    if (previous && previous.id !== id) snapshotTab(previous);
+    if (previous && previous.id !== id && PT.tour) PT.tour.stop();
+    switching = true;
+    activeId = id;
+    render();
+    let ok = false;
+    try {
+      ok = await PT.app.openTabDocument(target, {
+        fresh: !!options.fresh,
+        restored: !!options.restored
+      });
+    } finally {
+      switching = false;
+    }
+    if (!ok) {
+      activeId = previous ? previous.id : null;
+      render();
+      return false;
+    }
+    if (!target.savedHash) {
+      target.savedHash = hash(target.htmlContent);
+    }
+    if (target.history) {
+      PT.history.importState(target.history);
+    } else {
+      PT.history.reset();
+      target.history = PT.history.exportState();
+    }
+    if (PT.app && PT.app.setRailTab) PT.app.setRailTab(target.railTab || 'style');
+    persist();
+    return true;
+  }
+
+  function openPasted(html) {
+    if (!html || !String(html).trim()) return null;
+    pasteSeq += 1;
+    const index = pasteSeq;
+    const displayName = '粘贴的html' + index;
+    return openHtml({
+      fileName: displayName + '.html',
+      displayName,
+      pasteIndex: index,
+      fileKey: 'paste:' + index,
+      docId: 'paste:' + index,
+      htmlContent: String(html),
+      sourceHash: hash(html),
+      fresh: true
+    });
+  }
+
+  async function close(id, opts) {
+    if (switching) return false;
+    const tab = get(id);
+    if (!tab) return false;
+    const force = !!(opts && opts.force);
+    const dirty = isDirty(tab);
+    if (dirty && !force) {
+      const ok = await PT.app.confirm('关闭「' + displayName(tab) + '」？未保存的修改会丢失。', {
+        title: '关闭未保存文件',
+        confirmText: '关闭'
+      });
+      if (!ok) return false;
+    }
+    const wasActive = activeId === id;
+    const index = tabs.findIndex((t) => t.id === id);
+    tabs.splice(index, 1);
+    if (PT.storage && PT.storage.removeAnnotations) PT.storage.removeAnnotations(tab.docId);
+    if (!tabs.length) {
+      activeId = null;
+      pasteSeq = 0;
+      render();
+      if (PT.tour) PT.tour.stop();
+      clearSession();
+      if (PT.storage && PT.storage.clearLastSession) PT.storage.clearLastSession();
+      if (PT.app) PT.app.showWelcome();
+      return true;
+    }
+    if (wasActive) {
+      const next = tabs[Math.min(index, tabs.length - 1)];
+      activeId = null;
+      render();
+      await activate(next.id, { force: true });
+    } else {
+      render();
+      persist();
+    }
+    return true;
+  }
+
+  async function closeAll() {
+    if (!tabs.length) return;
+    const dirtyCount = tabs.filter(isDirty).length;
+    if (dirtyCount) {
+      const ok = await PT.app.confirm('有 ' + dirtyCount + ' 个文件存在未保存修改，关闭后修改会丢失。', {
+        title: '关闭全部文件',
+        confirmText: '全部关闭'
+      });
+      if (!ok) return;
+    }
+    resetHome();
+  }
+
+  function resetHome() {
+    tabs.forEach((t) => {
+      if (PT.storage && PT.storage.removeAnnotations) PT.storage.removeAnnotations(t.docId);
+    });
+    tabs = [];
+    activeId = null;
+    pasteSeq = 0;
+    render();
+    if (PT.tour) PT.tour.stop();
+    clearSession();
+    if (PT.storage && PT.storage.clearLastSession) PT.storage.clearLastSession();
+    if (PT.app) PT.app.showWelcome();
+    return true;
+  }
+
+  function markSaved(tab) {
+    const target = tab || getActive();
+    if (!target) return;
+    if (target.id === activeId && PT.app && PT.app.isLoaded()) {
+      try { target.htmlContent = PT.stage.serialize({ keepAid: true }); } catch (e) { /* ignore */ }
+    }
+    target.savedHash = hash(target.htmlContent);
+    persist();
+  }
+
+  function persistSoon() {
+    if (persistTimer) clearTimeout(persistTimer);
+    persistTimer = setTimeout(persist, 600);
+  }
+
+  function clearSession() {
+    try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ }
+  }
+
+  function persist() {
+    try {
+      if (!tabs.length) {
+        localStorage.removeItem(SESSION_KEY);
+        return;
+      }
+      const payload = {
+        activeId,
+        pasteSeq,
+        tabs: tabs.map((t) => ({
+          id: t.id,
+          fileName: t.fileName,
+          displayName: t.displayName || '',
+          pasteIndex: t.pasteIndex || 0,
+          relativePath: t.relativePath,
+          fileKey: t.fileKey,
+          htmlContent: t.htmlContent,
+          annotations: t.annotations || null,
+          docId: t.docId,
+          sourceHash: t.sourceHash,
+          savedHash: t.savedHash,
+          railTab: t.railTab || 'style',
+          createdAt: t.createdAt
+        }))
+      };
+      localStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+    } catch (e) {
+      try { localStorage.removeItem(SESSION_KEY); } catch (err) { /* ignore */ }
+      Core.toast('文件内容较大，浏览器存储空间不足，当前标签未能持久化', 'error', 3600);
+    }
+  }
+
+  async function restore() {
+    let payload = null;
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (raw) payload = JSON.parse(raw);
+    } catch (e) { payload = null; }
+    if (!payload || !Array.isArray(payload.tabs) || !payload.tabs.length) return false;
+
+    const seen = new Set();
+    tabs = payload.tabs.filter((t) => {
+      if (!t || !t.id || !t.htmlContent || !t.fileKey) return false;
+      if (seen.has(t.fileKey)) return false;
+      seen.add(t.fileKey);
+      return true;
+    });
+    if (!tabs.length) return false;
+    activeId = tabs.some((t) => t.id === payload.activeId) ? payload.activeId : tabs[0].id;
+    tabs.forEach((t) => {
+      t.annotations = t.annotations && Array.isArray(t.annotations.annotations) ? t.annotations : null;
+      t.history = null;
+      t.railTab = t.railTab || 'style';
+      t.displayName = t.displayName || '';
+      t.pasteIndex = Number(t.pasteIndex) || 0;
+    });
+    pasteSeq = Math.max(Number(payload.pasteSeq) || 0, ...tabs.map((t) => t.pasteIndex || 0));
+    render();
+    switching = true;
+    let ok = false;
+    try {
+      ok = await PT.app.openTabDocument(getActive(), { fresh: true, restored: true });
+    } finally {
+      switching = false;
+    }
+    if (!ok) {
+      tabs = [];
+      activeId = null;
+      pasteSeq = 0;
+      render();
+      try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ }
+      return false;
+    }
+    persist();
+    return true;
+  }
+
+  function render() {
+    const bar = document.getElementById('file-tabs');
+    const list = document.getElementById('file-tabs-list');
+    if (!bar || !list) return;
+    bar.hidden = tabs.length === 0;
+    document.body.classList.toggle('has-file-tabs', tabs.length > 0);
+    list.innerHTML = '';
+    tabs.forEach((tab) => {
+      const el = document.createElement('div');
+      el.className = 'pt-file-tab' + (tab.id === activeId ? ' is-active' : '');
+      el.setAttribute('role', 'tab');
+      el.setAttribute('aria-selected', tab.id === activeId ? 'true' : 'false');
+      el.dataset.tabId = tab.id;
+      el.title = tab.relativePath || tab.fileName;
+      const name = document.createElement('span');
+      name.className = 'pt-file-tab-name';
+      name.textContent = displayName(tab);
+      const close = document.createElement('button');
+      close.className = 'pt-file-tab-close';
+      close.type = 'button';
+      close.setAttribute('aria-label', '关闭 ' + tab.fileName);
+      close.textContent = '×';
+      close.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        closeTab(tab.id);
+      });
+      el.addEventListener('click', () => activate(tab.id));
+      el.addEventListener('auxclick', (e) => {
+        if (e.button === 1) {
+          e.preventDefault();
+          closeTab(tab.id);
+        }
+      });
+      el.appendChild(name);
+      el.appendChild(close);
+      list.appendChild(el);
+    });
+    const add = document.getElementById('file-tab-add');
+    if (add) add.hidden = tabs.length === 0;
+    if (!tabs.length) closeAddMenu();
+  }
+
+  function closeTab(id) {
+    close(id);
+  }
+
+  function updateActiveFromApp(fileName, docId) {
+    const tab = tabs.find((t) => t.docId === docId) || getActive();
+    if (tab && fileName) {
+      tab.fileName = fileName;
+      render();
+    }
+  }
+
+  PT.tabs = {
+    init,
+    openHtml,
+    openPasted,
+    activate,
+    close,
+    closeAll,
+    resetHome,
+    snapshotActive,
+    snapshotTab,
+    getActive,
+    getAll,
+    hasTabs,
+    isSwitching,
+    isDirty,
+    markSaved,
+    persist,
+    persistSoon,
+    restore,
+    render,
+    updateActiveFromApp
+  };
+})();
+
+</script>
+<script data-pt-inlined="paste-code.js">
+/* ProtoTweak — paste-code dialog with line numbers */
+(function () {
+  'use strict';
+
+  const PT = window.PT;
+  const Core = PT.core;
+  const PLACEHOLDER = '在此粘贴完整 HTML 或代码片段…';
+
+  let modal = null;
+  let textarea = null;
+  let lines = null;
+  let badge = null;
+  let lastActive = null;
+  const boundDocs = new WeakSet();
+
+  function init() {
+    modal = document.getElementById('paste-code-modal');
+    textarea = document.getElementById('code-input');
+    lines = document.getElementById('code-lines');
+    badge = document.getElementById('code-type-badge');
+    if (!modal || !textarea || !lines || !badge) return;
+
+    textarea.placeholder = PLACEHOLDER;
+    document.getElementById('welcome-paste-code').addEventListener('click', () => open(''));
+    document.getElementById('paste-code-close').addEventListener('click', close);
+    document.getElementById('paste-code-cancel').addEventListener('click', close);
+    document.getElementById('paste-code-confirm').addEventListener('click', confirmImport);
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+
+    textarea.addEventListener('input', update);
+    textarea.addEventListener('scroll', () => { lines.scrollTop = textarea.scrollTop; });
+    textarea.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        confirmImport();
+      }
+    });
+
+    bind(document);
+  }
+
+  function bind(doc) {
+    if (!doc || boundDocs.has(doc)) return;
+    boundDocs.add(doc);
+    doc.addEventListener('paste', onDocumentPaste, true);
+  }
+
+  function isEditable(el) {
+    if (!el) return false;
+    const tag = el.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+  }
+
+  function hasImage(data) {
+    if (!data || !data.items) return false;
+    for (const item of data.items) {
+      if (item.type && item.type.indexOf('image/') === 0) return true;
+    }
+    return false;
+  }
+
+  function onDocumentPaste(e) {
+    if (!modal || !modal.hidden) return;
+    if (isEditable(e.target)) return;
+    if (e.defaultPrevented) return;
+    if (hasImage(e.clipboardData)) return;
+
+    // Preserve the existing "paste into selected element" behavior when the
+    // canvas has a selection. Code pasting is for the editor shell/welcome.
+    if (PT.selection && PT.selection.getSelected()) return;
+
+    const text = e.clipboardData && e.clipboardData.getData('text/plain');
+    if (!text) return;
+    e.preventDefault();
+    open(text);
+  }
+
+  function open(text) {
+    if (!modal) init();
+    if (!modal) return;
+    lastActive = document.activeElement;
+    textarea.value = text || '';
+    update();
+    modal.hidden = false;
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    }, 0);
+  }
+
+  function close() {
+    if (!modal) return;
+    modal.hidden = true;
+    textarea.value = '';
+    if (lastActive && lastActive.focus) {
+      try { lastActive.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
+    }
+  }
+
+  function update() {
+    const value = textarea.value || '';
+    const count = value ? value.split('\n').length : 1;
+    const nums = [];
+    for (let i = 1; i <= count; i++) nums.push(String(i));
+    lines.textContent = nums.join('\n');
+    lines.scrollTop = textarea.scrollTop;
+    const htmlLike = /<(!doctype\s+html|html|head|body|div|section|main|span|style|script|table|button|input|textarea|select|form)\b/i.test(value);
+    badge.textContent = htmlLike ? 'HTML' : '纯文本';
+    badge.classList.toggle('is-html', htmlLike);
+  }
+
+  function confirmImport() {
+    const raw = (textarea.value || '').trim();
+    if (!raw) {
+      Core.toast('请先粘贴或输入一些代码', 'info', 1800);
+      textarea.focus();
+      return;
+    }
+    const html = /<!doctype\s+html|<html[\s>]/i.test(raw)
+      ? raw
+      : '<!doctype html><html><head><meta charset="utf-8"></head><body>' + raw + '</body></html>';
+    close();
+    if (PT.tabs) {
+      PT.tabs.openPasted(html);
+      Core.toast('已从粘贴代码创建新标签', 'success', 1800);
+    } else if (PT.app) {
+      PT.app.loadDocument(html, { fileName: '粘贴的html1.html', sourceHash: Core.hashString(html) });
+    }
+  }
+
+  PT.pasteCode = { init, open, close, bind };
+})();
+
+</script>
+<script data-pt-inlined="resource-bundler.js">
+/* ProtoTweak — bundle static folder resources into self-contained HTML */
+(function () {
+  'use strict';
+
+  const PT = window.PT;
+  const MAX_ASSET = 4 * 1024 * 1024;
+  const cache = new Map();
+
+  function normalize(path) {
+    return String(path || '').replace(/^\/+/, '').replace(/\\/g, '/');
+  }
+
+  function resolvePath(basePath, ref) {
+    if (!ref || /^(https?:|data:|blob:|mailto:|tel:|#|\/\/)/i.test(ref)) return '';
+    try {
+      const url = new URL(ref, 'https://prototweak.local/' + normalize(basePath));
+      return decodeURIComponent(url.pathname.replace(/^\/+/, ''));
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function findAsset(assets, path) {
+    if (!path) return null;
+    const target = normalize(path);
+    if (assets.has(target)) return assets.get(target);
+    const lower = target.toLowerCase();
+    for (const [key, value] of assets) {
+      if (key.toLowerCase() === lower) return value;
+    }
+    return null;
+  }
+
+  function readText(file) {
+    if (file.text) return file.text();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(reader.error || new Error('read failed'));
+      reader.readAsText(file, 'utf-8');
+    });
+  }
+
+  function readDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(reader.error || new Error('read failed'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function dataUrlFor(file) {
+    if (!file || file.size > MAX_ASSET) return '';
+    if (cache.has(file)) return cache.get(file);
+    try {
+      const value = await readDataUrl(file);
+      cache.set(file, value);
+      return value;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  async function inlineCss(css, cssPath, assets, depth) {
+    if (!css || depth > 4) return css || '';
+    let out = css;
+
+    // Static @import (best effort, one level at a time).
+    const importRe = /@import\s+(?:url\(\s*)?['"]?([^'")\s]+)['"]?\s*\)?\s*;?/gi;
+    const imports = [];
+    out.replace(importRe, (m, ref) => { imports.push({ m, ref }); return m; });
+    for (const item of imports) {
+      const path = resolvePath(cssPath, item.ref);
+      const asset = findAsset(assets, path);
+      if (!asset) continue;
+      try {
+        const nested = await readText(asset);
+        out = out.replace(item.m, await inlineCss(nested, path, assets, depth + 1));
+      } catch (e) { /* ignore */ }
+    }
+
+    const urlRe = /url\(\s*(['"]?)([^'")]+)\1\s*\)/gi;
+    const replacements = [];
+    out.replace(urlRe, (m, quote, ref) => { replacements.push({ m, ref }); return m; });
+    for (const item of replacements) {
+      const path = resolvePath(cssPath, item.ref);
+      const asset = findAsset(assets, path);
+      if (!asset) continue;
+      const data = await dataUrlFor(asset);
+      if (data) out = out.split(item.m).join('url("' + data + '")');
+    }
+    return out;
+  }
+
+  async function inlineStyleAttr(value, basePath, assets) {
+    if (!value || value.indexOf('url(') === -1) return value;
+    return inlineCss(value, basePath, assets, 0);
+  }
+
+  async function inlineSrcset(value, basePath, assets) {
+    if (!value) return value;
+    const parts = value.split(',').map((part) => part.trim()).filter(Boolean);
+    const mapped = [];
+    for (const part of parts) {
+      const bits = part.split(/\s+/);
+      const data = await dataUrlFor(findAsset(assets, resolvePath(basePath, bits[0])));
+      if (data) {
+        bits[0] = data;
+        mapped.push(bits.join(' '));
+      }
+    }
+    return mapped.length ? mapped.join(', ') : value;
+  }
+
+  async function bundle(html, htmlPath, fileRecords) {
+    const assets = new Map();
+    for (const record of fileRecords || []) {
+      if (record && record.file) assets.set(normalize(record.path), record.file);
+    }
+
+    let doc;
+    try {
+      doc = new DOMParser().parseFromString(html, 'text/html');
+    } catch (e) {
+      return html;
+    }
+    const basePath = normalize(htmlPath);
+
+    const links = Array.from(doc.querySelectorAll('link[href]'));
+    for (const link of links) {
+      const rel = (link.getAttribute('rel') || '').toLowerCase();
+      const href = link.getAttribute('href') || '';
+      const path = resolvePath(basePath, href);
+      const asset = findAsset(assets, path);
+      if (!asset) continue;
+      if (rel.indexOf('stylesheet') !== -1) {
+        try {
+          const css = await readText(asset);
+          const style = doc.createElement('style');
+          style.setAttribute('data-pt-bundled', 'css');
+          style.textContent = await inlineCss(css, path, assets, 0);
+          link.replaceWith(style);
+        } catch (e) { /* ignore */ }
+      } else if (rel.indexOf('icon') !== -1) {
+        const data = await dataUrlFor(asset);
+        if (data) link.setAttribute('href', data);
+      }
+    }
+
+    const styles = Array.from(doc.querySelectorAll('style'));
+    for (const style of styles) {
+      style.textContent = await inlineCss(style.textContent || '', basePath, assets, 0);
+    }
+
+    const styled = Array.from(doc.querySelectorAll('[style]'));
+    for (const el of styled) {
+      const value = el.getAttribute('style') || '';
+      if (value.indexOf('url(') !== -1) el.setAttribute('style', await inlineStyleAttr(value, basePath, assets));
+    }
+
+    const scripts = Array.from(doc.querySelectorAll('script[src]'));
+    for (const script of scripts) {
+      const path = resolvePath(basePath, script.getAttribute('src') || '');
+      const asset = findAsset(assets, path);
+      if (!asset) continue;
+      try {
+        const js = (await readText(asset)).replace(/<\/script/gi, '<\\/script');
+        script.removeAttribute('src');
+        script.textContent = js;
+      } catch (e) { /* ignore */ }
+    }
+
+    const media = Array.from(doc.querySelectorAll('img[src], source[src], video[poster], audio[src]'));
+    for (const el of media) {
+      const attr = el.hasAttribute('src') ? 'src' : 'poster';
+      const path = resolvePath(basePath, el.getAttribute(attr) || '');
+      const data = await dataUrlFor(findAsset(assets, path));
+      if (data) el.setAttribute(attr, data);
+    }
+
+    const srcsets = Array.from(doc.querySelectorAll('[srcset]'));
+    for (const el of srcsets) {
+      const value = el.getAttribute('srcset') || '';
+      const mapped = await inlineSrcset(value, basePath, assets);
+      if (mapped !== value) el.setAttribute('srcset', mapped);
+    }
+
+    return '<!doctype html>\n' + doc.documentElement.outerHTML;
+  }
+
+  PT.bundler = { bundle };
+})();
+
+</script>
+<script data-pt-inlined="tour.js">
+/* ProtoTweak — lightweight guided tour (no dependencies) */
+(function () {
+  'use strict';
+
+  const PT = window.PT;
+
+  const STEPS = [
+    {
+      target: '#canvas',
+      title: '双击文字，或右侧调样式。',
+      desc: '双击示例中的大标题，或按住 Ctrl/Cmd 选中它，在右侧调整字号与颜色。',
+      placement: 'canvas'
+    },
+    {
+      target: '#page-switcher',
+      title: '这是双页面原型，随时在这里切换。',
+      desc: '这是双页面示例，随时可以在顶部页面选择器切换「主页」和「第二页」。',
+      placement: 'below'
+    },
+    {
+      target: '#btn-annotate',
+      title: '打点批注，给开发留说明。',
+      desc: '点击批注模式，再点击任意元素，就能给开发留下具体说明。',
+      placement: 'below'
+    },
+    {
+      target: '#mode-preview',
+      title: '切到预览，测试刚才的按钮跳转。',
+      desc: '切到预览模式，点击示例里的「进入第二页体验跳转 →」测试真实跳转。',
+      placement: 'below'
+    },
+    {
+      target: '#btn-export',
+      title: '一键导出干净 HTML。',
+      desc: '修改满意后，从导出菜单获得干净 HTML、评审版或批注文件。',
+      placement: 'below'
+    },
+    {
+      target: '#canvas',
+      title: '导览完成',
+      desc: '示例本身就是完整教学。按住 Ctrl/Cmd 选中元素，右侧编辑；松开即恢复原生交互。',
+      placement: 'canvas'
+    }
+  ];
+
+  let root = null;
+  let spotlight = null;
+  let card = null;
+  let titleEl = null;
+  let descEl = null;
+  let stepEl = null;
+  let nextBtn = null;
+  let prevBtn = null;
+  let rememberEl = null;
+  let running = false;
+  let index = 0;
+  let lastFocus = null;
+
+  function init() {
+    root = document.getElementById('pt-tour');
+    if (!root) return;
+    spotlight = document.getElementById('pt-tour-spotlight');
+    card = document.getElementById('pt-tour-card');
+    titleEl = document.getElementById('pt-tour-title');
+    descEl = document.getElementById('pt-tour-desc');
+    stepEl = document.getElementById('pt-tour-step');
+    nextBtn = document.getElementById('pt-tour-next');
+    prevBtn = document.getElementById('pt-tour-prev');
+    rememberEl = document.getElementById('pt-tour-remember');
+
+    document.getElementById('pt-tour-skip').addEventListener('click', stop);
+    const closeBtn = document.getElementById('pt-tour-close');
+    if (closeBtn) closeBtn.addEventListener('click', stop);
+    nextBtn.addEventListener('click', next);
+    prevBtn.addEventListener('click', prev);
+    rememberEl.addEventListener('change', () => {
+      PT.storage.saveTour({ dismissed: rememberEl.checked });
+      if (rememberEl.checked) PT.core.toast('已记住：以后不再自动显示引导', 'info', 2200);
+    });
+    window.addEventListener('resize', reposition);
+    window.addEventListener('scroll', reposition, true);
+  }
+
+  function isDismissed() {
+    return !!(PT.storage && PT.storage.loadTour && PT.storage.loadTour().dismissed);
+  }
+
+  function start(opts) {
+    if (!root) init();
+    if (!root || !PT.app || !PT.app.isLoaded()) return false;
+    const options = opts || {};
+    if (isDismissed() && !options.force) return false;
+    if (running) {
+      index = 0;
+      render();
+      return true;
+    }
+    running = true;
+    index = 0;
+    lastFocus = document.activeElement;
+    root.hidden = false;
+    document.body.classList.add('tour-open');
+    if (rememberEl) rememberEl.checked = isDismissed();
+    if (PT.contextMenu) PT.contextMenu.close();
+    render();
+    return true;
+  }
+
+  function stop() {
+    if (!running) return;
+    running = false;
+    if (root) root.hidden = true;
+    document.body.classList.remove('tour-open');
+    if (lastFocus && lastFocus.focus) {
+      try { lastFocus.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
+    }
+  }
+
+  function next() {
+    if (!running) return;
+    if (index >= STEPS.length - 1) {
+      stop();
+      PT.core.toast('引导已完成', 'success', 1600);
+      return;
+    }
+    go(index + 1);
+  }
+
+  function prev() {
+    if (!running || index <= 0) return;
+    go(index - 1);
+  }
+
+  function go(nextIndex) {
+    if (!running) return;
+    if (nextIndex < 0 || nextIndex >= STEPS.length) return;
+    index = nextIndex;
+    render();
+  }
+
+  function targetFor(step) {
+    if (!step) return null;
+    let el = document.querySelector(step.target);
+    if (!el && step.fallback) el = document.querySelector(step.fallback);
+    if (!el || el.hidden) return null;
+    const rect = el.getBoundingClientRect();
+    if (!rect.width || !rect.height) {
+      if (step.fallback) {
+        el = document.querySelector(step.fallback);
+        if (el && !el.hidden) {
+          const fallbackRect = el.getBoundingClientRect();
+          if (fallbackRect.width && fallbackRect.height) return { el, rect: fallbackRect };
+        }
+      }
+      return null;
+    }
+    return { el, rect };
+  }
+
+  function render() {
+    if (!running) return;
+    let found = null;
+    for (let i = index; i < STEPS.length; i++) {
+      found = targetFor(STEPS[i]);
+      if (found) { index = i; break; }
+    }
+    if (!found) { stop(); return; }
+
+    const step = STEPS[index];
+    stepEl.textContent = (index + 1) + ' / ' + STEPS.length;
+    titleEl.textContent = step.title;
+    descEl.textContent = step.desc;
+    prevBtn.disabled = index === 0;
+    nextBtn.textContent = index === STEPS.length - 1 ? '完成' : '下一步';
+    if (rememberEl && rememberEl.parentElement) {
+      rememberEl.parentElement.hidden = index !== STEPS.length - 1;
+    }
+    spot(found.rect);
+    place(found.rect, step.placement);
+    setTimeout(() => { try { nextBtn.focus({ preventScroll: true }); } catch (e) {} }, 0);
+  }
+
+  function spot(rect) {
+    const pad = 8;
+    spotlight.style.left = (rect.left - pad) + 'px';
+    spotlight.style.top = (rect.top - pad) + 'px';
+    spotlight.style.width = Math.max(20, rect.width + pad * 2) + 'px';
+    spotlight.style.height = Math.max(20, rect.height + pad * 2) + 'px';
+  }
+
+  function place(rect, placement) {
+    const gap = 16;
+    const cw = card.offsetWidth || 360;
+    const ch = card.offsetHeight || 220;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let left;
+    let top;
+
+    if (placement === 'left') {
+      left = rect.left - cw - gap;
+      top = rect.top + Math.min(80, Math.max(0, (rect.height - ch) / 2));
+      if (left < 16) {
+        left = Math.min(vw - cw - 16, rect.right + gap);
+        top = rect.top + 32;
+      }
+    } else if (placement === 'canvas') {
+      left = Math.max(32, rect.left + 32);
+      top = Math.max(32, vh - ch - 48);
+    } else {
+      left = rect.left + rect.width / 2 - cw / 2;
+      top = rect.bottom + gap;
+      if (top + ch > vh - 16) top = rect.top - ch - gap;
+    }
+
+    left = Math.max(16, Math.min(vw - cw - 16, left));
+    top = Math.max(16, Math.min(vh - ch - 16, top));
+    card.style.left = Math.round(left) + 'px';
+    card.style.top = Math.round(top) + 'px';
+  }
+
+  function reposition() {
+    if (!running) return;
+    const found = targetFor(STEPS[index]);
+    if (!found) { render(); return; }
+    spot(found.rect);
+    place(found.rect, STEPS[index].placement);
+  }
+
+  function reset() {
+    PT.storage.resetTour();
+    PT.core.toast('新手引导已恢复', 'success', 1600);
+    start({ force: true });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (!running) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      stop();
+    }
+  }, true);
+
+  PT.tour = {
+    init,
+    start,
+    stop,
+    reset,
+    isDismissed,
+    isActive: () => running
+  };
+
+  // Developer helper: reset persisted guide state and restart when a document is loaded.
+  window.resetGuide = function () {
+    if (PT.storage && PT.storage.resetTour) PT.storage.resetTour();
+    if (PT.app && PT.app.isLoaded() && PT.tour) {
+      PT.tour.start({ force: true });
+      return 'Guide restarted.';
+    }
+    PT.core.toast('引导状态已重置；加载示例或 HTML 后可再次触发', 'info', 2400);
+    return 'Guide reset. Load a document to start it.';
+  };
 })();
 
 </script>
@@ -8982,6 +12142,7 @@ kbd {
   function exportClean() {
     if (!requireDoc()) return;
     Core.download(fileBase() + '.html', cleanHtml(), 'text/html;charset=utf-8');
+    if (PT.tabs) PT.tabs.markSaved();
     Core.toast('已导出干净 HTML', 'success');
   }
 
@@ -9299,6 +12460,7 @@ kbd {
     loaded: false,
     loading: false,
     mode: 'edit',
+    fastInspect: false,
     fileName: null,
     fileHandle: null,
     sourceHash: '',
@@ -9307,68 +12469,26 @@ kbd {
     lastSaveAt: null
   };
 
-  const SAMPLE_HTML = `<!doctype html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8" />
-<title>示例 PRD — 开发者选项面板</title>
-<style>
-  * { box-sizing: border-box; }
-  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; max-width: 820px; margin: 32px auto; padding: 0 28px 60px; color: #1f2937; position: relative; min-height: 600px; line-height: 1.7; }
-  h1 { font-size: 26px; border-bottom: 2px solid #2563eb; padding-bottom: 10px; letter-spacing: -.4px; }
-  h2 { font-size: 18px; margin-top: 30px; color: #1d4ed8; }
-  table { width: 100%; border-collapse: collapse; margin: 14px 0; }
-  th, td { border: 1px solid #e5e7eb; padding: 9px 12px; text-align: left; font-size: 13px; }
-  th { background: #f8fafc; font-weight: 600; }
-  ul { padding-left: 22px; }
-  li { margin: 5px 0; }
-  .tag { display: inline-block; padding: 2px 8px; background: #eff6ff; color: #2563eb; border-radius: 4px; font-size: 12px; }
-  .floating-note { position: absolute; top: 96px; right: -26px; width: 168px; padding: 12px; background: #fffbeb; border: 1px solid #f59e0b; border-radius: 9px; font-size: 12px; color: #92400e; box-shadow: 0 3px 10px rgba(0,0,0,.08); }
-  .actions-row { display: flex; gap: 10px; align-items: center; margin: 18px 0; }
-  .btn-primary { padding: 9px 20px; background: #2563eb; color: #fff; border: 0; border-radius: 8px; font-size: 14px; cursor: pointer; }
-  select { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; font-size: 13px; }
-</style>
-</head>
-<body>
-  <h1>需求文档：开发者选项面板</h1>
-  <p>试着点击任何元素，在右侧修改样式。双击文字直接编辑，拖拽可以直接移动。</p>
-  <div class="floating-note">试试拖拽我<br>我是绝对定位元素，可以自由移动。</div>
+  const LAUNCH_KEY = 'prototweak_launch_v1';
 
-  <h2>1. 背景</h2>
-  <p>性能分析平台需要一个开发者选项面板，让高级用户开启实验性功能、查看调试信息、配置数据采集参数。</p>
-
-  <div class="actions-row">
-    <button class="btn-primary">保存设置</button>
-    <select>
-      <option>基础版</option>
-      <option selected>专业版</option>
-      <option>企业版</option>
-    </select>
-  </div>
-
-  <h2>2. 功能模块</h2>
-  <table>
-    <thead><tr><th>模块</th><th>说明</th><th>优先级</th></tr></thead>
-    <tbody>
-      <tr><td>实验功能开关</td><td>开关列表，每项一行</td><td><span class="tag">P0</span></td></tr>
-      <tr><td>调试日志</td><td>实时日志流，可过滤</td><td><span class="tag">P0</span></td></tr>
-      <tr><td>采集参数配置</td><td>采样率、上报频率等</td><td><span class="tag">P1</span></td></tr>
-    </tbody>
-  </table>
-
-  <h2>3. 边界情况</h2>
-  <ul>
-    <li>无权限用户访问该页面：跳转 403</li>
-    <li>实验功能开关切换失败：toast 提示原因</li>
-    <li>调试日志超过 10000 条：自动清理最早记录</li>
-  </ul>
-</body>
-</html>`;
+  // A fresh tab/browser session always lands on the welcome page. Reloading
+  // the same tab keeps sessionStorage, so an in-progress session can still
+  // recover its tabs.
+  function isFreshLaunch() {
+    try {
+      if (sessionStorage.getItem(LAUNCH_KEY)) return false;
+      sessionStorage.setItem(LAUNCH_KEY, '1');
+      return true;
+    } catch (e) {
+      return true;
+    }
+  }
 
   let booted = false;
   function init() {
     if (booted) return;
     booted = true;
+    const freshLaunch = isFreshLaunch();
     const steps = [
       ['storage', () => PT.storage.init()],
       ['stage', () => PT.stage.init({
@@ -9389,12 +12509,16 @@ kbd {
       ['annotations', () => PT.annotations.init()],
       ['annotation-ui', () => PT.annotationUI.init()],
       ['context-menu', () => PT.contextMenu && PT.contextMenu.init()],
+      ['tabs', () => PT.tabs && PT.tabs.init()],
+      ['paste-code', () => PT.pasteCode && PT.pasteCode.init()],
+      ['tour', () => PT.tour && PT.tour.init()],
       ['confirm', initConfirm],
       ['versions', () => PT.versions.init()],
       ['changelog', () => PT.changelog.init()],
       ['export', () => PT.export.init()],
       ['stage-events', bindStageEvents],
       ['topbar', bindTopbar],
+      ['drop', bindDrop],
       ['menus', bindMenus],
       ['import', bindImport],
       ['modals', bindModals],
@@ -9419,9 +12543,19 @@ kbd {
     setRailTab('style');
     showEmpty();
 
-    restoreSession().then((restored) => {
-      if (!restored) showEmpty();
-    }).catch(() => showEmpty());
+    // New browser session/tab: never auto-open a previous prototype.
+    if (freshLaunch) return;
+
+    PT.tabs.restore().then((restored) => {
+      if (restored) return;
+      restoreSession().then((ok) => {
+        if (!ok) showEmpty();
+      }).catch(() => showEmpty());
+    }).catch(() => {
+      restoreSession().then((ok) => {
+        if (!ok) showEmpty();
+      }).catch(() => showEmpty());
+    });
   }
 
   // ---------- Lifecycle ----------
@@ -9477,17 +12611,35 @@ kbd {
     PT.textEdit.bind(doc);
     PT.drag.bind(doc);
     PT.clipboard.bind(doc);
+    if (PT.pasteCode) PT.pasteCode.bind(doc);
 
-    doc.addEventListener('submit', (e) => {
-      // Edit mode must not navigate the iframe; preview must let the
-      // prototype's own submit handlers run.
-      if (state.mode !== 'preview') e.preventDefault();
-    }, true);
-    doc.addEventListener('click', onDocumentClick, true);
+    doc.addEventListener('mousedown', onDocumentMouseDown, true);
+    doc.addEventListener('keydown', onInspectKeyDown, true);
+    doc.addEventListener('keyup', onInspectKeyUp, true);
     doc.addEventListener('keydown', handleKey, false);
     doc.addEventListener('dragstart', (e) => {
       if (state.mode === 'edit' && !PT.annotations.isMode()) e.preventDefault();
     }, true);
+    doc.addEventListener('dragover', (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      e.preventDefault();
+      const overlay = document.getElementById('pt-drop-overlay');
+      if (overlay) overlay.hidden = false;
+    }, false);
+    doc.addEventListener('dragleave', (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      if (e.relatedTarget) return;
+      const overlay = document.getElementById('pt-drop-overlay');
+      if (overlay) overlay.hidden = true;
+    }, false);
+    doc.addEventListener('drop', (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const overlay = document.getElementById('pt-drop-overlay');
+      if (overlay) overlay.hidden = true;
+      importDataTransfer(e.dataTransfer);
+    }, false);
   }
 
   function onDocumentClick(e) {
@@ -9512,14 +12664,55 @@ kbd {
     }
   }
 
+  function onDocumentMouseDown(e) {
+    if (!state.loaded) return;
+    if (PT.annotations.isMode() || PT.textEdit.isEditing()) return;
+    const inspect = state.fastInspect || e.ctrlKey || e.metaKey;
+    if (!inspect) return;
+    if (!state.fastInspect) setFastInspect(true);
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }
+
+  function isFastInspect() {
+    return !!state.loaded && !!state.fastInspect;
+  }
+
+  function setFastInspect(on) {
+    const next = !!on && state.loaded && !(PT.annotations && PT.annotations.isMode());
+    if (state.fastInspect === next) return;
+    state.fastInspect = next;
+    document.body.classList.toggle('inspect-active', next);
+    document.body.classList.toggle('preview-inspect', next && state.mode === 'preview');
+    if (PT.stage && PT.stage.setInspectCursor) PT.stage.setInspectCursor(next);
+    if (!next && PT.selection && PT.selection.clearHover) PT.selection.clearHover();
+  }
+
+  function exitFastInspect() {
+    setFastInspect(false);
+  }
+
+  function onInspectKeyDown(e) {
+    if (!state.loaded || (PT.annotations && PT.annotations.isMode())) return;
+    if (e.key === 'Control' || e.key === 'Meta') {
+      setFastInspect(true);
+    }
+  }
+
+  function onInspectKeyUp(e) {
+    if (e.key === 'Control' || e.key === 'Meta') {
+      setFastInspect(false);
+    }
+  }
+
   // ---------- Document loading ----------
   async function loadDocument(rawHtml, opts) {
     const options = opts || {};
-    if (state.loading) return;
+    if (state.loading) return false;
     const html = String(rawHtml == null ? '' : rawHtml);
     if (!html.trim()) {
       Core.toast('HTML 内容为空', 'error');
-      return;
+      return false;
     }
     state.loading = true;
     closeAllMenus();
@@ -9584,30 +12777,64 @@ kbd {
       if (!options.skipSave) scheduleSessionSave();
       if (options.restoreSession) Core.toast('已恢复上次编辑会话', 'success', 1800);
       else Core.toast('已打开 ' + fileName, 'success', 1500);
+      return true;
     } catch (err) {
       state.loading = false;
       console.error(err);
       Core.toast('HTML 载入失败：' + (err && err.message ? err.message : '未知错误'), 'error');
+      return false;
     } finally {
       document.body.classList.remove('loading-doc');
     }
   }
 
+  async function openTabDocument(tab, opts) {
+    if (!tab) return false;
+    const options = opts || {};
+    const loadOpts = {
+      fileName: tab.fileName,
+      docId: tab.docId,
+      sourceHash: tab.sourceHash,
+      skipVersion: true,
+      skipSave: true
+    };
+    if (tab.annotations) {
+      loadOpts.forceAnnotations = true;
+      loadOpts.annotationsData = tab.annotations;
+    }
+    const ok = await loadDocument(tab.htmlContent, loadOpts);
+    if (!ok) return false;
+    try {
+      tab.htmlContent = PT.stage.serialize({ keepAid: true });
+      tab.annotations = PT.annotations.serializeData();
+      if (!tab.savedHash) tab.savedHash = Core.hashString(tab.htmlContent);
+    } catch (e) { /* ignore */ }
+    if (PT.tabs) {
+      PT.tabs.render();
+      PT.tabs.persist();
+    }
+    return true;
+  }
+
   async function loadFile(file, handle) {
-    if (!file) return;
+    if (!file) return null;
     if (!/\.html?$/i.test(file.name) && file.type && !/html/i.test(file.type)) {
       Core.toast('请选择 .html 或 .htm 文件', 'error');
-      return;
+      return null;
     }
     try {
       const raw = await Core.readFileAsText(file);
-      await loadDocument(raw, {
+      if (!PT.tabs) return null;
+      return await PT.tabs.openHtml({
         fileName: file.name,
+        relativePath: file.name,
+        htmlContent: raw,
         sourceHash: Core.hashString(raw),
         fileHandle: handle || null
       });
     } catch (err) {
       Core.toast('文件读取失败', 'error');
+      return null;
     }
   }
 
@@ -9618,16 +12845,20 @@ kbd {
     }
     try {
       const handles = await window.showOpenFilePicker({
-        multiple: false,
+        multiple: true,
         types: [{
           description: 'HTML',
           accept: { 'text/html': ['.html', '.htm'] }
         }]
       });
-      const handle = handles && handles[0];
-      if (!handle) return;
-      const file = await handle.getFile();
-      await loadFile(file, handle);
+      if (!handles || !handles.length) return;
+      let opened = 0;
+      for (const handle of handles) {
+        const file = await handle.getFile();
+        const tab = await loadFile(file, handle);
+        if (tab) opened++;
+      }
+      if (opened > 1) Core.toast('已打开 ' + opened + ' 个文件', 'success', 1800);
     } catch (err) {
       if (err && err.name === 'AbortError') return;
       document.getElementById('file-input').click();
@@ -9638,15 +12869,18 @@ kbd {
     try {
       const session = await PT.storage.loadLastSession();
       if (!session || !session.html) return false;
-      await loadDocument(session.html, {
+      if (!PT.tabs) return false;
+      const tab = await PT.tabs.openHtml({
         fileName: session.fileName || 'prototype.html',
-        sourceHash: session.sourceHash || '',
+        relativePath: session.fileName || 'prototype.html',
+        htmlContent: session.html,
+        sourceHash: session.sourceHash || Core.hashString(session.html),
         docId: session.docId,
-        fallbackAnnotations: session.annotations || null,
-        restoreSession: true,
-        skipSave: true,
-        skipVersion: true
+        annotations: session.annotations || null,
+        fresh: true
       });
+      if (!tab) return false;
+      Core.toast('已恢复上次编辑会话', 'success', 1800);
       return true;
     } catch (err) {
       console.warn('[ProtoTweak] restore session failed', err);
@@ -9703,6 +12937,7 @@ kbd {
       if (PT.annotations.isMode()) document.body.classList.add('annotate-mode');
     }
     state.mode = mode;
+    document.body.classList.toggle('preview-inspect', state.fastInspect && mode === 'preview');
     PT.inspector.setDisabled(mode !== 'edit' || PT.annotations.isMode());
     PT.table.updateUI();
     if (PT.resize) PT.resize.refresh();
@@ -9717,7 +12952,7 @@ kbd {
     document.querySelectorAll('.mode-btn[data-mode]').forEach((b) => {
       b.classList.toggle('on', b.dataset.mode === state.mode);
     });
-    document.getElementById('status-mode').textContent = isPreview ? '预览模式' : (PT.annotations.isMode() ? '批注模式' : '编辑模式');
+    document.getElementById('status-mode').textContent = isPreview ? '预览模式 · Ctrl/Cmd 点击穿透' : (PT.annotations.isMode() ? '批注模式' : '编辑模式 · Ctrl/Cmd 点击选中');
     document.body.classList.toggle('preview-mode', isPreview);
     document.body.classList.toggle('annotate-mode', !isPreview && PT.annotations.isMode());
     document.getElementById('btn-annotate').classList.toggle('on', PT.annotations.isMode());
@@ -9791,6 +13026,11 @@ kbd {
   function showEmpty() {
     state.loaded = false;
     state.mode = 'edit';
+    state.fileName = null;
+    state.docId = null;
+    state.sourceHash = '';
+    state.fileHandle = null;
+    if (PT.tour) PT.tour.stop();
     document.body.classList.add('no-doc');
     document.body.classList.remove('preview-mode', 'annotate-mode');
     document.getElementById('empty-state').hidden = false;
@@ -9805,11 +13045,20 @@ kbd {
     document.getElementById('annotation-banner').hidden = true;
     PT.selection.clear({ silent: true });
     if (PT.pages) PT.pages.clear();
+    if (PT.history) PT.history.reset();
+    if (PT.annotations) PT.annotations.unload();
     if (PT.resize) PT.resize.refresh();
     PT.inspector.sync();
     PT.table.updateUI();
     PT.annotationUI.renderAll();
+    if (PT.tabs) PT.tabs.render();
+    const drop = document.getElementById('pt-drop-overlay');
+    if (drop) drop.hidden = true;
     updateUndoRedo();
+  }
+
+  function showWelcome() {
+    showEmpty();
   }
 
   function updateFileChip() {
@@ -9825,7 +13074,7 @@ kbd {
     document.getElementById('status-selection').textContent = sel ? (PT.anchors ? PT.anchors.elementPath(sel) : sel.tagName.toLowerCase()) : '';
     const c = PT.annotations.counts();
     document.getElementById('status-annot').textContent = c.total ? ('批注 ' + c.total + ' · 未解决 ' + c.open + (c.orphan ? ' · 孤立 ' + c.orphan : '')) : '';
-    document.getElementById('status-mode').textContent = state.mode === 'preview' ? '预览模式' : (PT.annotations.isMode() ? '批注模式' : '编辑模式');
+    document.getElementById('status-mode').textContent = state.mode === 'preview' ? '预览模式 · Ctrl/Cmd 点击穿透' : (PT.annotations.isMode() ? '批注模式' : '编辑模式 · Ctrl/Cmd 点击选中');
     document.getElementById('annot-count').textContent = String(c.total);
     document.getElementById('annot-count').classList.toggle('has-orphan', c.orphan > 0);
     document.getElementById('annot-tab-count').textContent = String(c.total);
@@ -9848,7 +13097,7 @@ kbd {
 
   function applyModeUI(mode) {
     document.querySelectorAll('.mode-btn[data-mode]').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
-    document.getElementById('status-mode').textContent = mode === 'preview' ? '预览模式' : '编辑模式';
+    document.getElementById('status-mode').textContent = mode === 'preview' ? '预览模式 · Ctrl/Cmd 点击穿透' : '编辑模式 · Ctrl/Cmd 点击选中';
   }
 
   // ---------- Menus ----------
@@ -9908,6 +13157,7 @@ kbd {
     });
     document.getElementById('menu-help').addEventListener('click', () => {
       closeAllMenus();
+      syncHelpTourPreference();
       document.getElementById('help-modal').hidden = false;
     });
   }
@@ -9925,12 +13175,44 @@ kbd {
 
   // ---------- Topbar ----------
   function bindTopbar() {
-    document.getElementById('btn-import').addEventListener('click', () => openImportModal('file'));
-    document.getElementById('btn-import-2').addEventListener('click', () => openImportModal('file'));
-    document.getElementById('file-input').addEventListener('change', (e) => {
-      const file = e.target.files && e.target.files[0];
+    const home = document.getElementById('btn-home');
+    if (home) {
+      home.addEventListener('click', async () => {
+        if (PT.tabs && PT.tabs.hasTabs()) {
+          if (!window.confirm('返回主页将关闭当前所有文件，确定吗？')) return;
+        }
+        if (PT.tabs && PT.tabs.resetHome) PT.tabs.resetHome();
+        else showWelcome();
+      });
+    }
+    const welcomeDrop = document.getElementById('welcome-dropzone');
+    if (welcomeDrop) {
+      welcomeDrop.addEventListener('click', pickFile);
+      welcomeDrop.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          pickFile();
+        }
+      });
+      ['dragenter', 'dragover'].forEach((ev) => {
+        welcomeDrop.addEventListener(ev, (e) => {
+          if (!hasFileDrag(e.dataTransfer)) return;
+          e.preventDefault();
+          welcomeDrop.classList.add('drag-over');
+        });
+      });
+      welcomeDrop.addEventListener('dragleave', (e) => {
+        if (!hasFileDrag(e.dataTransfer)) return;
+        welcomeDrop.classList.remove('drag-over');
+      });
+      welcomeDrop.addEventListener('drop', () => {
+        welcomeDrop.classList.remove('drag-over');
+      });
+    }
+    document.getElementById('file-input').addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files || []);
       e.target.value = '';
-      if (file) loadFile(file, null);
+      for (const file of files) await loadFile(file, null);
     });
     document.getElementById('btn-sample-2').addEventListener('click', loadSample);
     document.getElementById('btn-undo').addEventListener('click', () => PT.history.undo());
@@ -9947,36 +13229,334 @@ kbd {
     document.getElementById('ann-import-btn').addEventListener('click', () => document.getElementById('annotation-file-input').click());
   }
 
-  function loadSample() {
+  async function loadSample(opts) {
+    const options = opts || {};
     closeAllModals();
-    loadDocument(SAMPLE_HTML, { fileName: 'sample.html', sourceHash: Core.hashString(SAMPLE_HTML) });
+    if (!PT.tabs || !PT.sample) return;
+    const existingSample = PT.tabs.getAll().find((t) => t.sample);
+    const staleSample = existingSample && !String(existingSample.htmlContent || '').includes('data-page="page-home"');
+    if ((options.reload || staleSample) && existingSample) {
+      await PT.tabs.close(existingSample.id, { force: true });
+      if (PT.tabs.getAll().some((t) => t.sample)) return;
+    }
+    if (PT.tour) PT.tour.stop();
+    // Normal sample entry respects the "不再提示" preference. Only the Help
+    // page's explicit "重新载入示例并开始引导" resets and forces the tour.
+    if (options.forceTour && PT.storage && PT.storage.resetTour) {
+      PT.storage.resetTour();
+    }
+    const tab = await PT.tabs.openHtml({
+      fileName: PT.sample.fileName,
+      relativePath: PT.sample.fileName,
+      fileKey: PT.sample.fileKey,
+      htmlContent: PT.sample.html,
+      sourceHash: Core.hashString(PT.sample.html),
+      docId: 'sample:' + Core.hashString(PT.sample.html),
+      sample: true,
+      fresh: true
+    }, { silent: true });
+    if (!tab) return;
+    if (PT.pages) {
+      const first = PT.pages.getPages()[0];
+      if (first) PT.pages.show(first.key);
+    }
+    // Give the onboarding a real annotation pin to point at.
+    try {
+      if (!PT.annotations.list().length) {
+        const doc = PT.stage.getDoc();
+        const target = doc && (doc.querySelector('h1') || doc.body);
+        if (target) {
+          const ann = PT.annotations.add(target);
+          if (ann) {
+            PT.annotations.update(ann.id, {
+              content: '这是一条示例批注，点击小点可以查看或标记为已解决。',
+              type: '交互说明'
+            }, { source: 'sample' });
+            // The auto-created demo aid is part of the sample baseline, not an
+            // unsaved user edit.
+            if (PT.tabs) {
+              PT.tabs.snapshotActive();
+              PT.tabs.markSaved();
+            }
+          }
+        }
+      }
+    } catch (e) { /* sample annotation is optional */ }
+    if (PT.tour) {
+      const forced = !!options.forceTour;
+      if (forced) {
+        setTimeout(() => PT.tour.start({ force: true }), 320);
+      } else if (!PT.tour.isDismissed()) {
+        setTimeout(() => PT.tour.start(), 320);
+      }
+    }
+  }
+
+  // ---------- Drag / folder import ----------
+  function hasFileDrag(dt) {
+    if (!dt) return false;
+    try {
+      if (dt.files && dt.files.length) return true;
+      if (dt.items) {
+        for (const item of Array.from(dt.items)) {
+          if (item && item.kind === 'file') return true;
+        }
+      }
+      return Array.from(dt.types || []).indexOf('Files') !== -1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function entryFile(entry) {
+    return new Promise((resolve, reject) => entry.file(resolve, reject));
+  }
+
+  function readEntries(reader) {
+    return new Promise((resolve, reject) => reader.readEntries(resolve, reject));
+  }
+
+  async function walkEntry(entry, out) {
+    if (!entry) return;
+    const name = entry.name || '';
+    if (entry.isFile) {
+      try {
+        const file = await entryFile(entry);
+        out.push({ file, path: String(entry.fullPath || name).replace(/^\/+/, '') });
+      } catch (e) { /* skip unreadable entry */ }
+      return;
+    }
+    if (entry.isDirectory) {
+      if (name === 'node_modules' || name === '.git' || name.charAt(0) === '.') return;
+      const reader = entry.createReader();
+      while (true) {
+        let batch = [];
+        try { batch = await readEntries(reader); } catch (e) { break; }
+        if (!batch || !batch.length) break;
+        for (const child of batch) await walkEntry(child, out);
+      }
+    }
+  }
+
+  async function walkHandle(handle, out, prefix) {
+    if (!handle) return;
+    const base = prefix || '';
+    if (handle.kind === 'file') {
+      try {
+        const file = await handle.getFile();
+        out.push({ file, path: base + file.name });
+      } catch (e) { /* skip unreadable handle */ }
+      return;
+    }
+    if (handle.kind === 'directory' && handle.entries) {
+      const name = handle.name || '';
+      if (name === 'node_modules' || name === '.git' || name.charAt(0) === '.') return;
+      try {
+        for await (const [, child] of handle.entries()) {
+          await walkHandle(child, out, base + name + '/');
+        }
+      } catch (e) { /* skip unreadable directory */ }
+    }
+  }
+
+  async function importDataTransfer(dt) {
+    if (!dt || !PT.tabs) return;
+
+    // Snapshot the native FileList synchronously. Chrome clears DataTransfer
+    // contents once the drop handler returns; reading it after an await loses
+    // the dropped file.
+    const flatFiles = Array.from(dt.files || []);
+    const items = Array.from(dt.items || []);
+    const entries = [];
+    const handlePromises = [];
+    items.forEach((item) => {
+      try {
+        const entry = item.webkitGetAsEntry && item.webkitGetAsEntry();
+        if (entry) entries.push(entry);
+      } catch (e) { /* ignore */ }
+      try {
+        // Modern Chromium fallback for directories whose Entry reader is
+        // unavailable. Start the promise synchronously, before the drop event
+        // loses its DataTransfer contents.
+        const handle = item.getAsFileSystemHandle && item.getAsFileSystemHandle();
+        if (handle) handlePromises.push(handle);
+      } catch (e) { /* ignore */ }
+    });
+
+    let records = flatFiles.map((file) => ({
+      file,
+      path: file.webkitRelativePath || file.name
+    }));
+
+    // Files are already available from dataTransfer.files. Only fall back to
+    // recursive entry walking for a directory drop (folder drag) or when the
+    // flat list is unexpectedly empty.
+    const hasDirectory = entries.some((entry) => entry && entry.isDirectory);
+    if (entries.length && (hasDirectory || !flatFiles.length)) {
+      const entryRecords = [];
+      for (const entry of entries) await walkEntry(entry, entryRecords);
+      const known = new Set(records.map((record) => record.path || (record.file && record.file.name)));
+      entryRecords.forEach((record) => {
+        if (!record || !record.file) return;
+        const path = record.path || record.file.name;
+        if (!known.has(path)) {
+          records.push({ file: record.file, path });
+          known.add(path);
+        }
+      });
+    }
+
+    // If Entry recursion did not yield an HTML file, fall back to the modern
+    // File System Access handles (directory handles can survive the drop event
+    // where Entry readers sometimes cannot).
+    const hasHtml = () => records.some((record) => record.file && /\.html?$/i.test(record.file.name || ''));
+    if (!hasHtml() && handlePromises.length) {
+      const settled = await Promise.allSettled(handlePromises);
+      const handleRecords = [];
+      for (const result of settled) {
+        if (result.status === 'fulfilled' && result.value) {
+          await walkHandle(result.value, handleRecords, '');
+        }
+      }
+      const known = new Set(records.map((record) => record.path || (record.file && record.file.name)));
+      handleRecords.forEach((record) => {
+        if (!record || !record.file) return;
+        const path = record.path || record.file.name;
+        if (!known.has(path)) {
+          records.push({ file: record.file, path });
+          known.add(path);
+        }
+      });
+    }
+
+    records = records.filter((record) => record && record.file);
+    records.sort((a, b) => String(a.path || '').localeCompare(String(b.path || ''), 'zh-CN'));
+    const htmlRecords = records
+      .filter((record) => record.file && /\.html?$/i.test(record.file.name || ''))
+      .slice(0, 24);
+    records = records.slice(0, 500);
+    if (!htmlRecords.length) {
+      Core.toast('没有找到可导入的 HTML 文件', 'info', 2400);
+      return;
+    }
+
+    let opened = 0;
+    let skipped = 0;
+    const seen = new Set();
+    const hasAssets = records.some((record) => record.file && !/\.html?$/i.test(record.file.name));
+    for (const record of htmlRecords) {
+      const file = record.file;
+      if (!file || file.size > 4 * 1024 * 1024) {
+        skipped++;
+        continue;
+      }
+      try {
+        const raw = await Core.readFileAsText(file);
+        const sourceHash = Core.hashString(raw);
+        const relativePath = record.path || file.name;
+        const key = sourceHash + '|' + relativePath;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        let htmlContent = raw;
+        if (PT.bundler && hasAssets) {
+          try {
+            htmlContent = await PT.bundler.bundle(raw, relativePath, records);
+          } catch (e) {
+            htmlContent = raw;
+          }
+        }
+        const before = PT.tabs.getAll().length;
+        const tab = await PT.tabs.openHtml({
+          fileName: file.name,
+          relativePath,
+          htmlContent,
+          sourceHash,
+          fresh: true
+        }, { silent: true });
+        if (tab && PT.tabs.getAll().length > before) opened++;
+        else if (tab) skipped++;
+      } catch (e) {
+        skipped++;
+      }
+    }
+    if (opened) Core.toast('已打开 ' + opened + ' 个文件' + (skipped ? '，跳过 ' + skipped + ' 个' : ''), 'success', 2600);
+    else Core.toast(skipped ? '没有新增文件，已跳过 ' + skipped + ' 个' : '没有新增文件', 'info', 2400);
+  }
+
+  function bindDrop() {
+    const canvas = document.getElementById('canvas');
+    const overlay = document.getElementById('pt-drop-overlay');
+    if (!canvas || !overlay) return;
+    let depth = 0;
+    const show = () => {
+      overlay.hidden = false;
+      canvas.classList.add('drag-over');
+    };
+    const hide = () => {
+      depth = 0;
+      overlay.hidden = true;
+      canvas.classList.remove('drag-over');
+    };
+    canvas.addEventListener('dragenter', (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      e.preventDefault();
+      depth++;
+      show();
+    });
+    canvas.addEventListener('dragover', (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      show();
+    });
+    canvas.addEventListener('dragleave', (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      depth = Math.max(0, depth - 1);
+      if (!depth) hide();
+    });
+    canvas.addEventListener('drop', async (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      hide();
+      await importDataTransfer(e.dataTransfer);
+    });
+    // Capture-phase fallback: a drop on a welcome child, text node, or browser
+    // chrome should still be handled even if a descendant stops bubbling.
+    document.addEventListener('dragover', (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      e.preventDefault();
+    }, true);
+    document.addEventListener('drop', (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      if (e.target && e.target.closest && e.target.closest('.modal')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      hide();
+      importDataTransfer(e.dataTransfer);
+    }, true);
+    window.addEventListener('dragover', (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      e.preventDefault();
+    });
+    window.addEventListener('drop', (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      if (canvas.contains(e.target)) return;
+      if (e.target && e.target.closest && e.target.closest('#dropzone, .modal')) return;
+      e.preventDefault();
+      hide();
+      importDataTransfer(e.dataTransfer);
+    });
   }
 
   // ---------- Import ----------
-  let importTab = 'file';
   function bindImport() {
     const modal = document.getElementById('import-modal');
-    document.querySelectorAll('[data-import-tab]').forEach((b) => {
-      b.addEventListener('click', () => switchImportTab(b.dataset.importTab));
-    });
     document.getElementById('dz-pick').addEventListener('click', pickFile);
     document.getElementById('import-cancel').addEventListener('click', closeImportModal);
-    document.getElementById('paste-ok').addEventListener('click', () => {
-      const value = document.getElementById('paste-area').value.trim();
-      if (!value) return;
-      const html = /<html[\s>]/i.test(value)
-        ? value
-        : '<!doctype html><html><head><meta charset="utf-8"></head><body>' + value + '</body></html>';
-      closeImportModal();
-      loadDocument(html, { fileName: 'pasted.html', sourceHash: Core.hashString(html) });
-    });
     modal.addEventListener('click', (e) => { if (e.target === modal) closeImportModal(); });
     modal.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeImportModal();
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && importTab === 'paste') {
-        e.preventDefault();
-        document.getElementById('paste-ok').click();
-      }
     });
     const dz = document.getElementById('dropzone');
     ['dragenter', 'dragover'].forEach((ev) => {
@@ -10001,39 +13581,46 @@ kbd {
         loadFile(file, null);
       }
     });
-    window.addEventListener('drop', (e) => {
-      const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-      if (!file) return;
-      if (e.target && e.target.closest && e.target.closest('#dropzone')) return;
-      e.preventDefault();
-      loadFile(file, null);
-    });
-    window.addEventListener('dragover', (e) => {
-      if (e.dataTransfer && Array.from(e.dataTransfer.types || []).indexOf('Files') !== -1) e.preventDefault();
-    });
   }
 
   function openImportModal(tab) {
     document.getElementById('import-modal').hidden = false;
-    switchImportTab(tab || 'file');
-  }
-
-  function switchImportTab(tab) {
-    importTab = tab === 'paste' ? 'paste' : 'file';
-    document.querySelectorAll('[data-import-tab]').forEach((b) => b.classList.toggle('on', b.dataset.importTab === importTab));
-    document.querySelectorAll('[data-import-pane]').forEach((p) => { p.hidden = p.dataset.importPane !== importTab; });
-    document.getElementById('paste-ok').hidden = importTab !== 'paste';
-    if (importTab === 'paste') setTimeout(() => document.getElementById('paste-area').focus(), 0);
   }
 
   function closeImportModal() {
     document.getElementById('import-modal').hidden = true;
-    document.getElementById('paste-area').value = '';
   }
 
   // ---------- Modals ----------
+  function syncHelpTourPreference() {
+    const checkbox = document.getElementById('help-tour-dismiss');
+    if (!checkbox || !PT.storage || !PT.storage.loadTour) return;
+    const tour = PT.storage.loadTour();
+    checkbox.checked = !!(tour && tour.dismissed);
+  }
+
   function bindModals() {
     document.getElementById('help-close').addEventListener('click', () => { document.getElementById('help-modal').hidden = true; });
+    const tourDismiss = document.getElementById('help-tour-dismiss');
+    if (tourDismiss) {
+      tourDismiss.addEventListener('change', () => {
+        if (tourDismiss.checked) {
+          PT.storage.saveTour({ dismissed: true });
+          Core.toast('已关闭自动新手引导', 'info', 1800);
+        } else {
+          PT.storage.resetTour();
+          Core.toast('已恢复：加载示例时会显示新手引导', 'success', 2200);
+        }
+      });
+    }
+    syncHelpTourPreference();
+    const tourReset = document.getElementById('help-tour-reset');
+    if (tourReset) {
+      tourReset.addEventListener('click', async () => {
+        document.getElementById('help-modal').hidden = true;
+        await loadSample({ reload: true, forceTour: true });
+      });
+    }
     document.getElementById('help-modal').addEventListener('click', (e) => {
       if (e.target === document.getElementById('help-modal')) document.getElementById('help-modal').hidden = true;
     });
@@ -10041,7 +13628,7 @@ kbd {
 
   function closeAllModals() {
     if (PT.selectEditor && PT.selectEditor.isOpen()) PT.selectEditor.cancel();
-    ['import-modal', 'select-modal', 'table-modal', 'versions-modal', 'help-modal'].forEach((id) => {
+    ['import-modal', 'paste-code-modal', 'select-modal', 'table-modal', 'versions-modal', 'help-modal'].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.hidden = true;
     });
@@ -10097,6 +13684,7 @@ kbd {
           state.fileHandle = handle;
           state.fileName = handle.name || state.fileName;
           updateFileChip();
+          if (PT.tabs) PT.tabs.updateActiveFromApp(state.fileName, state.docId);
           await afterSave();
           Core.toast('已保存 ' + state.fileName, 'success');
           return;
@@ -10122,29 +13710,15 @@ kbd {
   async function afterSave() {
     await saveSessionNow();
     PT.versions.saveCurrent('export', '保存');
+    if (PT.tabs) PT.tabs.markSaved();
   }
 
   async function closeDocument() {
-    if (!state.loaded) return;
-    if (!window.confirm('关闭当前文件？批注会保留在浏览器中；下次需要重新导入文件，或用版本历史恢复。')) return;
-    PT.inspector.commitActive();
-    if (PT.drag) PT.drag.cancel();
-    if (PT.resize) PT.resize.cancel();
-    if (PT.table && PT.table.cancelSize) PT.table.cancelSize();
-    if (PT.ops) PT.ops.end();
-    PT.annotations.flush();
-    await saveSessionNow();
-    await PT.storage.clearLastSession();
-    PT.annotations.unload();
-    PT.history.clear();
-    PT.selection.clear({ silent: true });
-    if (PT.pages) PT.pages.clear();
-    state.loaded = false;
-    state.fileName = null;
-    state.fileHandle = null;
-    state.docId = null;
-    state.sourceHash = '';
-    state.mode = 'edit';
+    if (PT.tabs && PT.tabs.hasTabs()) {
+      const active = PT.tabs.getActive();
+      if (active) await PT.tabs.close(active.id);
+      return;
+    }
     showEmpty();
   }
 
@@ -10186,6 +13760,14 @@ kbd {
         PT.textEdit.finish({ commit: true });
         e.preventDefault();
         return;
+      }
+      if (PT.selection.getKind() === 'cell') {
+        const table = PT.selection.getTable();
+        if (table) {
+          PT.selection.selectTable(table, PT.selection.getActiveCell());
+          e.preventDefault();
+          return;
+        }
       }
       if (PT.selection.getSelected()) {
         PT.selection.clear();
@@ -10272,6 +13854,7 @@ kbd {
     const opts = options || {};
     const modal = document.getElementById('pt-confirm');
     if (!modal) return Promise.resolve(window.confirm(message));
+    if (PT.tour && PT.tour.isActive()) PT.tour.stop();
     if (confirmPending) settleConfirm(false);
     document.getElementById('pt-confirm-title').textContent = opts.title || '确认操作';
     document.getElementById('pt-confirm-message').textContent = message || '';
@@ -10299,7 +13882,7 @@ kbd {
       settleConfirm(false);
       return true;
     }
-    const ids = ['help-modal', 'versions-modal', 'table-modal', 'select-modal', 'import-modal'];
+    const ids = ['help-modal', 'versions-modal', 'table-modal', 'select-modal', 'import-modal', 'paste-code-modal'];
     for (const id of ids) {
       const el = document.getElementById(id);
       if (el && !el.hidden) {
@@ -10323,12 +13906,34 @@ kbd {
 
   // ---------- Window events ----------
   function bindWindowEvents() {
-    window.addEventListener('beforeunload', () => {
+    window.addEventListener('beforeunload', (event) => {
+      let message = '';
+      const dirty = PT.tabs
+        ? PT.tabs.getAll().filter((tab) => PT.tabs.isDirty(tab))
+        : [];
+      if (dirty.length) {
+        message = dirty.length === 1
+          ? '「' + (dirty[0].displayName || dirty[0].fileName || '当前文件') + '」有未保存的修改。是否保存此次更改？关闭前请确认。'
+          : '有 ' + dirty.length + ' 个文件存在未保存的修改。是否保存此次更改？关闭前请确认。';
+        // Modern browsers show their own translated confirmation. Setting
+        // returnValue is what enables the native leave/cancel prompt.
+        event.preventDefault();
+        event.returnValue = message;
+      }
+      if (PT.tabs) {
+        PT.tabs.snapshotActive();
+        PT.tabs.persist();
+      }
       PT.annotations.flush();
       saveSessionNow();
+      return message || undefined;
     });
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
+        if (PT.tabs) {
+          PT.tabs.snapshotActive();
+          PT.tabs.persist();
+        }
         PT.annotations.flush();
         saveSessionNow();
       }
@@ -10337,6 +13942,9 @@ kbd {
       if (PT.stage) PT.stage.scheduleLayout();
       PT.annotationUI.positionCard();
     });
+    window.addEventListener('keydown', onInspectKeyDown, true);
+    window.addEventListener('keyup', onInspectKeyUp, true);
+    window.addEventListener('blur', () => setFastInspect(false));
   }
 
   // ---------- Public API ----------
@@ -10350,15 +13958,22 @@ kbd {
     getDocId: () => state.docId,
     getSourceHash: () => state.sourceHash,
     loadDocument,
+    openTabDocument,
     loadFile,
+    loadSample,
     pickFile,
     saveDocument,
     setMode,
+    isFastInspect,
+    setFastInspect,
+    exitFastInspect,
     toggleAnnotation,
     exitAnnotation,
     updateStatus,
     updateFileChip,
     scheduleSessionSave,
+    showWelcome,
+    setRailTab,
     confirm: confirmAction
   };
 

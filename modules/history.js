@@ -190,7 +190,26 @@
     getSelection() { return selectedRef(); },
     getEntries() { return stack.slice(); },
     getIndex() { return index; },
-    hasTransaction() { return !!tx; }
+    hasTransaction() { return !!tx; },
+
+    exportState() {
+      return {
+        stack: stack.slice(),
+        index
+      };
+    },
+
+    importState(state) {
+      tx = null;
+      if (!state || !Array.isArray(state.stack) || !state.stack.length) {
+        History.reset();
+        return false;
+      }
+      stack = state.stack.slice();
+      index = Math.max(0, Math.min(Number(state.index) || 0, stack.length - 1));
+      emitChange();
+      return true;
+    }
   };
 
   function restore(entry, fromEntry, direction) {

@@ -84,6 +84,7 @@
       if (PT.app && PT.app.getMode() === 'preview' && !PT.annotations.getShowInPreview()) closeCard({ removeIfEmpty: true });
       renderPins();
       renderBanner();
+      scheduleReposition();
     });
     Core.on('stage:ready', (e) => bindDoc(e.doc));
     Core.on('history:restore', () => closeCard({ removeIfEmpty: false }));
@@ -411,7 +412,11 @@
     const cw = card.offsetWidth || 340;
     const ch = card.offsetHeight || 300;
     const rail = document.querySelector('.rail');
-    const railLeft = rail && !document.body.classList.contains('no-doc') ? rail.getBoundingClientRect().left : window.innerWidth;
+    const railVisible = !!(rail && rail.offsetParent !== null && !document.body.classList.contains('no-doc'));
+    // In preview mode the rail is display:none, so its rect.left is 0. Using
+    // that as the right edge clamped every annotation card to the far left.
+    // Fall back to the viewport width when the rail is not rendered.
+    const railLeft = railVisible ? rail.getBoundingClientRect().left : window.innerWidth;
     const maxLeft = Math.max(12, railLeft - cw - 14);
     let left;
     let top;

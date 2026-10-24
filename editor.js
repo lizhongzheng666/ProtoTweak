@@ -9,6 +9,7 @@
     loaded: false,
     loading: false,
     mode: 'edit',
+    fastInspect: false,
     fileName: null,
     fileHandle: null,
     sourceHash: '',
@@ -17,68 +18,26 @@
     lastSaveAt: null
   };
 
-  const SAMPLE_HTML = `<!doctype html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8" />
-<title>示例 PRD — 开发者选项面板</title>
-<style>
-  * { box-sizing: border-box; }
-  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; max-width: 820px; margin: 32px auto; padding: 0 28px 60px; color: #1f2937; position: relative; min-height: 600px; line-height: 1.7; }
-  h1 { font-size: 26px; border-bottom: 2px solid #2563eb; padding-bottom: 10px; letter-spacing: -.4px; }
-  h2 { font-size: 18px; margin-top: 30px; color: #1d4ed8; }
-  table { width: 100%; border-collapse: collapse; margin: 14px 0; }
-  th, td { border: 1px solid #e5e7eb; padding: 9px 12px; text-align: left; font-size: 13px; }
-  th { background: #f8fafc; font-weight: 600; }
-  ul { padding-left: 22px; }
-  li { margin: 5px 0; }
-  .tag { display: inline-block; padding: 2px 8px; background: #eff6ff; color: #2563eb; border-radius: 4px; font-size: 12px; }
-  .floating-note { position: absolute; top: 96px; right: -26px; width: 168px; padding: 12px; background: #fffbeb; border: 1px solid #f59e0b; border-radius: 9px; font-size: 12px; color: #92400e; box-shadow: 0 3px 10px rgba(0,0,0,.08); }
-  .actions-row { display: flex; gap: 10px; align-items: center; margin: 18px 0; }
-  .btn-primary { padding: 9px 20px; background: #2563eb; color: #fff; border: 0; border-radius: 8px; font-size: 14px; cursor: pointer; }
-  select { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; font-size: 13px; }
-</style>
-</head>
-<body>
-  <h1>需求文档：开发者选项面板</h1>
-  <p>试着点击任何元素，在右侧修改样式。双击文字直接编辑，拖拽可以直接移动。</p>
-  <div class="floating-note">试试拖拽我<br>我是绝对定位元素，可以自由移动。</div>
+  const LAUNCH_KEY = 'prototweak_launch_v1';
 
-  <h2>1. 背景</h2>
-  <p>性能分析平台需要一个开发者选项面板，让高级用户开启实验性功能、查看调试信息、配置数据采集参数。</p>
-
-  <div class="actions-row">
-    <button class="btn-primary">保存设置</button>
-    <select>
-      <option>基础版</option>
-      <option selected>专业版</option>
-      <option>企业版</option>
-    </select>
-  </div>
-
-  <h2>2. 功能模块</h2>
-  <table>
-    <thead><tr><th>模块</th><th>说明</th><th>优先级</th></tr></thead>
-    <tbody>
-      <tr><td>实验功能开关</td><td>开关列表，每项一行</td><td><span class="tag">P0</span></td></tr>
-      <tr><td>调试日志</td><td>实时日志流，可过滤</td><td><span class="tag">P0</span></td></tr>
-      <tr><td>采集参数配置</td><td>采样率、上报频率等</td><td><span class="tag">P1</span></td></tr>
-    </tbody>
-  </table>
-
-  <h2>3. 边界情况</h2>
-  <ul>
-    <li>无权限用户访问该页面：跳转 403</li>
-    <li>实验功能开关切换失败：toast 提示原因</li>
-    <li>调试日志超过 10000 条：自动清理最早记录</li>
-  </ul>
-</body>
-</html>`;
+  // A fresh tab/browser session always lands on the welcome page. Reloading
+  // the same tab keeps sessionStorage, so an in-progress session can still
+  // recover its tabs.
+  function isFreshLaunch() {
+    try {
+      if (sessionStorage.getItem(LAUNCH_KEY)) return false;
+      sessionStorage.setItem(LAUNCH_KEY, '1');
+      return true;
+    } catch (e) {
+      return true;
+    }
+  }
 
   let booted = false;
   function init() {
     if (booted) return;
     booted = true;
+    const freshLaunch = isFreshLaunch();
     const steps = [
       ['storage', () => PT.storage.init()],
       ['stage', () => PT.stage.init({
@@ -99,12 +58,16 @@
       ['annotations', () => PT.annotations.init()],
       ['annotation-ui', () => PT.annotationUI.init()],
       ['context-menu', () => PT.contextMenu && PT.contextMenu.init()],
+      ['tabs', () => PT.tabs && PT.tabs.init()],
+      ['paste-code', () => PT.pasteCode && PT.pasteCode.init()],
+      ['tour', () => PT.tour && PT.tour.init()],
       ['confirm', initConfirm],
       ['versions', () => PT.versions.init()],
       ['changelog', () => PT.changelog.init()],
       ['export', () => PT.export.init()],
       ['stage-events', bindStageEvents],
       ['topbar', bindTopbar],
+      ['drop', bindDrop],
       ['menus', bindMenus],
       ['import', bindImport],
       ['modals', bindModals],
@@ -129,9 +92,19 @@
     setRailTab('style');
     showEmpty();
 
-    restoreSession().then((restored) => {
-      if (!restored) showEmpty();
-    }).catch(() => showEmpty());
+    // New browser session/tab: never auto-open a previous prototype.
+    if (freshLaunch) return;
+
+    PT.tabs.restore().then((restored) => {
+      if (restored) return;
+      restoreSession().then((ok) => {
+        if (!ok) showEmpty();
+      }).catch(() => showEmpty());
+    }).catch(() => {
+      restoreSession().then((ok) => {
+        if (!ok) showEmpty();
+      }).catch(() => showEmpty());
+    });
   }
 
   // ---------- Lifecycle ----------
@@ -187,17 +160,35 @@
     PT.textEdit.bind(doc);
     PT.drag.bind(doc);
     PT.clipboard.bind(doc);
+    if (PT.pasteCode) PT.pasteCode.bind(doc);
 
-    doc.addEventListener('submit', (e) => {
-      // Edit mode must not navigate the iframe; preview must let the
-      // prototype's own submit handlers run.
-      if (state.mode !== 'preview') e.preventDefault();
-    }, true);
-    doc.addEventListener('click', onDocumentClick, true);
+    doc.addEventListener('mousedown', onDocumentMouseDown, true);
+    doc.addEventListener('keydown', onInspectKeyDown, true);
+    doc.addEventListener('keyup', onInspectKeyUp, true);
     doc.addEventListener('keydown', handleKey, false);
     doc.addEventListener('dragstart', (e) => {
       if (state.mode === 'edit' && !PT.annotations.isMode()) e.preventDefault();
     }, true);
+    doc.addEventListener('dragover', (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      e.preventDefault();
+      const overlay = document.getElementById('pt-drop-overlay');
+      if (overlay) overlay.hidden = false;
+    }, false);
+    doc.addEventListener('dragleave', (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      if (e.relatedTarget) return;
+      const overlay = document.getElementById('pt-drop-overlay');
+      if (overlay) overlay.hidden = true;
+    }, false);
+    doc.addEventListener('drop', (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const overlay = document.getElementById('pt-drop-overlay');
+      if (overlay) overlay.hidden = true;
+      importDataTransfer(e.dataTransfer);
+    }, false);
   }
 
   function onDocumentClick(e) {
@@ -222,14 +213,55 @@
     }
   }
 
+  function onDocumentMouseDown(e) {
+    if (!state.loaded) return;
+    if (PT.annotations.isMode() || PT.textEdit.isEditing()) return;
+    const inspect = state.fastInspect || e.ctrlKey || e.metaKey;
+    if (!inspect) return;
+    if (!state.fastInspect) setFastInspect(true);
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }
+
+  function isFastInspect() {
+    return !!state.loaded && !!state.fastInspect;
+  }
+
+  function setFastInspect(on) {
+    const next = !!on && state.loaded && !(PT.annotations && PT.annotations.isMode());
+    if (state.fastInspect === next) return;
+    state.fastInspect = next;
+    document.body.classList.toggle('inspect-active', next);
+    document.body.classList.toggle('preview-inspect', next && state.mode === 'preview');
+    if (PT.stage && PT.stage.setInspectCursor) PT.stage.setInspectCursor(next);
+    if (!next && PT.selection && PT.selection.clearHover) PT.selection.clearHover();
+  }
+
+  function exitFastInspect() {
+    setFastInspect(false);
+  }
+
+  function onInspectKeyDown(e) {
+    if (!state.loaded || (PT.annotations && PT.annotations.isMode())) return;
+    if (e.key === 'Control' || e.key === 'Meta') {
+      setFastInspect(true);
+    }
+  }
+
+  function onInspectKeyUp(e) {
+    if (e.key === 'Control' || e.key === 'Meta') {
+      setFastInspect(false);
+    }
+  }
+
   // ---------- Document loading ----------
   async function loadDocument(rawHtml, opts) {
     const options = opts || {};
-    if (state.loading) return;
+    if (state.loading) return false;
     const html = String(rawHtml == null ? '' : rawHtml);
     if (!html.trim()) {
       Core.toast('HTML 内容为空', 'error');
-      return;
+      return false;
     }
     state.loading = true;
     closeAllMenus();
@@ -294,30 +326,64 @@
       if (!options.skipSave) scheduleSessionSave();
       if (options.restoreSession) Core.toast('已恢复上次编辑会话', 'success', 1800);
       else Core.toast('已打开 ' + fileName, 'success', 1500);
+      return true;
     } catch (err) {
       state.loading = false;
       console.error(err);
       Core.toast('HTML 载入失败：' + (err && err.message ? err.message : '未知错误'), 'error');
+      return false;
     } finally {
       document.body.classList.remove('loading-doc');
     }
   }
 
+  async function openTabDocument(tab, opts) {
+    if (!tab) return false;
+    const options = opts || {};
+    const loadOpts = {
+      fileName: tab.fileName,
+      docId: tab.docId,
+      sourceHash: tab.sourceHash,
+      skipVersion: true,
+      skipSave: true
+    };
+    if (tab.annotations) {
+      loadOpts.forceAnnotations = true;
+      loadOpts.annotationsData = tab.annotations;
+    }
+    const ok = await loadDocument(tab.htmlContent, loadOpts);
+    if (!ok) return false;
+    try {
+      tab.htmlContent = PT.stage.serialize({ keepAid: true });
+      tab.annotations = PT.annotations.serializeData();
+      if (!tab.savedHash) tab.savedHash = Core.hashString(tab.htmlContent);
+    } catch (e) { /* ignore */ }
+    if (PT.tabs) {
+      PT.tabs.render();
+      PT.tabs.persist();
+    }
+    return true;
+  }
+
   async function loadFile(file, handle) {
-    if (!file) return;
+    if (!file) return null;
     if (!/\.html?$/i.test(file.name) && file.type && !/html/i.test(file.type)) {
       Core.toast('请选择 .html 或 .htm 文件', 'error');
-      return;
+      return null;
     }
     try {
       const raw = await Core.readFileAsText(file);
-      await loadDocument(raw, {
+      if (!PT.tabs) return null;
+      return await PT.tabs.openHtml({
         fileName: file.name,
+        relativePath: file.name,
+        htmlContent: raw,
         sourceHash: Core.hashString(raw),
         fileHandle: handle || null
       });
     } catch (err) {
       Core.toast('文件读取失败', 'error');
+      return null;
     }
   }
 
@@ -328,16 +394,20 @@
     }
     try {
       const handles = await window.showOpenFilePicker({
-        multiple: false,
+        multiple: true,
         types: [{
           description: 'HTML',
           accept: { 'text/html': ['.html', '.htm'] }
         }]
       });
-      const handle = handles && handles[0];
-      if (!handle) return;
-      const file = await handle.getFile();
-      await loadFile(file, handle);
+      if (!handles || !handles.length) return;
+      let opened = 0;
+      for (const handle of handles) {
+        const file = await handle.getFile();
+        const tab = await loadFile(file, handle);
+        if (tab) opened++;
+      }
+      if (opened > 1) Core.toast('已打开 ' + opened + ' 个文件', 'success', 1800);
     } catch (err) {
       if (err && err.name === 'AbortError') return;
       document.getElementById('file-input').click();
@@ -348,15 +418,18 @@
     try {
       const session = await PT.storage.loadLastSession();
       if (!session || !session.html) return false;
-      await loadDocument(session.html, {
+      if (!PT.tabs) return false;
+      const tab = await PT.tabs.openHtml({
         fileName: session.fileName || 'prototype.html',
-        sourceHash: session.sourceHash || '',
+        relativePath: session.fileName || 'prototype.html',
+        htmlContent: session.html,
+        sourceHash: session.sourceHash || Core.hashString(session.html),
         docId: session.docId,
-        fallbackAnnotations: session.annotations || null,
-        restoreSession: true,
-        skipSave: true,
-        skipVersion: true
+        annotations: session.annotations || null,
+        fresh: true
       });
+      if (!tab) return false;
+      Core.toast('已恢复上次编辑会话', 'success', 1800);
       return true;
     } catch (err) {
       console.warn('[ProtoTweak] restore session failed', err);
@@ -413,6 +486,7 @@
       if (PT.annotations.isMode()) document.body.classList.add('annotate-mode');
     }
     state.mode = mode;
+    document.body.classList.toggle('preview-inspect', state.fastInspect && mode === 'preview');
     PT.inspector.setDisabled(mode !== 'edit' || PT.annotations.isMode());
     PT.table.updateUI();
     if (PT.resize) PT.resize.refresh();
@@ -427,7 +501,7 @@
     document.querySelectorAll('.mode-btn[data-mode]').forEach((b) => {
       b.classList.toggle('on', b.dataset.mode === state.mode);
     });
-    document.getElementById('status-mode').textContent = isPreview ? '预览模式' : (PT.annotations.isMode() ? '批注模式' : '编辑模式');
+    document.getElementById('status-mode').textContent = isPreview ? '预览模式 · Ctrl/Cmd 点击穿透' : (PT.annotations.isMode() ? '批注模式' : '编辑模式 · Ctrl/Cmd 点击选中');
     document.body.classList.toggle('preview-mode', isPreview);
     document.body.classList.toggle('annotate-mode', !isPreview && PT.annotations.isMode());
     document.getElementById('btn-annotate').classList.toggle('on', PT.annotations.isMode());
@@ -501,6 +575,11 @@
   function showEmpty() {
     state.loaded = false;
     state.mode = 'edit';
+    state.fileName = null;
+    state.docId = null;
+    state.sourceHash = '';
+    state.fileHandle = null;
+    if (PT.tour) PT.tour.stop();
     document.body.classList.add('no-doc');
     document.body.classList.remove('preview-mode', 'annotate-mode');
     document.getElementById('empty-state').hidden = false;
@@ -515,11 +594,20 @@
     document.getElementById('annotation-banner').hidden = true;
     PT.selection.clear({ silent: true });
     if (PT.pages) PT.pages.clear();
+    if (PT.history) PT.history.reset();
+    if (PT.annotations) PT.annotations.unload();
     if (PT.resize) PT.resize.refresh();
     PT.inspector.sync();
     PT.table.updateUI();
     PT.annotationUI.renderAll();
+    if (PT.tabs) PT.tabs.render();
+    const drop = document.getElementById('pt-drop-overlay');
+    if (drop) drop.hidden = true;
     updateUndoRedo();
+  }
+
+  function showWelcome() {
+    showEmpty();
   }
 
   function updateFileChip() {
@@ -535,7 +623,7 @@
     document.getElementById('status-selection').textContent = sel ? (PT.anchors ? PT.anchors.elementPath(sel) : sel.tagName.toLowerCase()) : '';
     const c = PT.annotations.counts();
     document.getElementById('status-annot').textContent = c.total ? ('批注 ' + c.total + ' · 未解决 ' + c.open + (c.orphan ? ' · 孤立 ' + c.orphan : '')) : '';
-    document.getElementById('status-mode').textContent = state.mode === 'preview' ? '预览模式' : (PT.annotations.isMode() ? '批注模式' : '编辑模式');
+    document.getElementById('status-mode').textContent = state.mode === 'preview' ? '预览模式 · Ctrl/Cmd 点击穿透' : (PT.annotations.isMode() ? '批注模式' : '编辑模式 · Ctrl/Cmd 点击选中');
     document.getElementById('annot-count').textContent = String(c.total);
     document.getElementById('annot-count').classList.toggle('has-orphan', c.orphan > 0);
     document.getElementById('annot-tab-count').textContent = String(c.total);
@@ -558,7 +646,7 @@
 
   function applyModeUI(mode) {
     document.querySelectorAll('.mode-btn[data-mode]').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
-    document.getElementById('status-mode').textContent = mode === 'preview' ? '预览模式' : '编辑模式';
+    document.getElementById('status-mode').textContent = mode === 'preview' ? '预览模式 · Ctrl/Cmd 点击穿透' : '编辑模式 · Ctrl/Cmd 点击选中';
   }
 
   // ---------- Menus ----------
@@ -618,6 +706,7 @@
     });
     document.getElementById('menu-help').addEventListener('click', () => {
       closeAllMenus();
+      syncHelpTourPreference();
       document.getElementById('help-modal').hidden = false;
     });
   }
@@ -635,12 +724,44 @@
 
   // ---------- Topbar ----------
   function bindTopbar() {
-    document.getElementById('btn-import').addEventListener('click', () => openImportModal('file'));
-    document.getElementById('btn-import-2').addEventListener('click', () => openImportModal('file'));
-    document.getElementById('file-input').addEventListener('change', (e) => {
-      const file = e.target.files && e.target.files[0];
+    const home = document.getElementById('btn-home');
+    if (home) {
+      home.addEventListener('click', async () => {
+        if (PT.tabs && PT.tabs.hasTabs()) {
+          if (!window.confirm('返回主页将关闭当前所有文件，确定吗？')) return;
+        }
+        if (PT.tabs && PT.tabs.resetHome) PT.tabs.resetHome();
+        else showWelcome();
+      });
+    }
+    const welcomeDrop = document.getElementById('welcome-dropzone');
+    if (welcomeDrop) {
+      welcomeDrop.addEventListener('click', pickFile);
+      welcomeDrop.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          pickFile();
+        }
+      });
+      ['dragenter', 'dragover'].forEach((ev) => {
+        welcomeDrop.addEventListener(ev, (e) => {
+          if (!hasFileDrag(e.dataTransfer)) return;
+          e.preventDefault();
+          welcomeDrop.classList.add('drag-over');
+        });
+      });
+      welcomeDrop.addEventListener('dragleave', (e) => {
+        if (!hasFileDrag(e.dataTransfer)) return;
+        welcomeDrop.classList.remove('drag-over');
+      });
+      welcomeDrop.addEventListener('drop', () => {
+        welcomeDrop.classList.remove('drag-over');
+      });
+    }
+    document.getElementById('file-input').addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files || []);
       e.target.value = '';
-      if (file) loadFile(file, null);
+      for (const file of files) await loadFile(file, null);
     });
     document.getElementById('btn-sample-2').addEventListener('click', loadSample);
     document.getElementById('btn-undo').addEventListener('click', () => PT.history.undo());
@@ -657,36 +778,334 @@
     document.getElementById('ann-import-btn').addEventListener('click', () => document.getElementById('annotation-file-input').click());
   }
 
-  function loadSample() {
+  async function loadSample(opts) {
+    const options = opts || {};
     closeAllModals();
-    loadDocument(SAMPLE_HTML, { fileName: 'sample.html', sourceHash: Core.hashString(SAMPLE_HTML) });
+    if (!PT.tabs || !PT.sample) return;
+    const existingSample = PT.tabs.getAll().find((t) => t.sample);
+    const staleSample = existingSample && !String(existingSample.htmlContent || '').includes('data-page="page-home"');
+    if ((options.reload || staleSample) && existingSample) {
+      await PT.tabs.close(existingSample.id, { force: true });
+      if (PT.tabs.getAll().some((t) => t.sample)) return;
+    }
+    if (PT.tour) PT.tour.stop();
+    // Normal sample entry respects the "不再提示" preference. Only the Help
+    // page's explicit "重新载入示例并开始引导" resets and forces the tour.
+    if (options.forceTour && PT.storage && PT.storage.resetTour) {
+      PT.storage.resetTour();
+    }
+    const tab = await PT.tabs.openHtml({
+      fileName: PT.sample.fileName,
+      relativePath: PT.sample.fileName,
+      fileKey: PT.sample.fileKey,
+      htmlContent: PT.sample.html,
+      sourceHash: Core.hashString(PT.sample.html),
+      docId: 'sample:' + Core.hashString(PT.sample.html),
+      sample: true,
+      fresh: true
+    }, { silent: true });
+    if (!tab) return;
+    if (PT.pages) {
+      const first = PT.pages.getPages()[0];
+      if (first) PT.pages.show(first.key);
+    }
+    // Give the onboarding a real annotation pin to point at.
+    try {
+      if (!PT.annotations.list().length) {
+        const doc = PT.stage.getDoc();
+        const target = doc && (doc.querySelector('h1') || doc.body);
+        if (target) {
+          const ann = PT.annotations.add(target);
+          if (ann) {
+            PT.annotations.update(ann.id, {
+              content: '这是一条示例批注，点击小点可以查看或标记为已解决。',
+              type: '交互说明'
+            }, { source: 'sample' });
+            // The auto-created demo aid is part of the sample baseline, not an
+            // unsaved user edit.
+            if (PT.tabs) {
+              PT.tabs.snapshotActive();
+              PT.tabs.markSaved();
+            }
+          }
+        }
+      }
+    } catch (e) { /* sample annotation is optional */ }
+    if (PT.tour) {
+      const forced = !!options.forceTour;
+      if (forced) {
+        setTimeout(() => PT.tour.start({ force: true }), 320);
+      } else if (!PT.tour.isDismissed()) {
+        setTimeout(() => PT.tour.start(), 320);
+      }
+    }
+  }
+
+  // ---------- Drag / folder import ----------
+  function hasFileDrag(dt) {
+    if (!dt) return false;
+    try {
+      if (dt.files && dt.files.length) return true;
+      if (dt.items) {
+        for (const item of Array.from(dt.items)) {
+          if (item && item.kind === 'file') return true;
+        }
+      }
+      return Array.from(dt.types || []).indexOf('Files') !== -1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function entryFile(entry) {
+    return new Promise((resolve, reject) => entry.file(resolve, reject));
+  }
+
+  function readEntries(reader) {
+    return new Promise((resolve, reject) => reader.readEntries(resolve, reject));
+  }
+
+  async function walkEntry(entry, out) {
+    if (!entry) return;
+    const name = entry.name || '';
+    if (entry.isFile) {
+      try {
+        const file = await entryFile(entry);
+        out.push({ file, path: String(entry.fullPath || name).replace(/^\/+/, '') });
+      } catch (e) { /* skip unreadable entry */ }
+      return;
+    }
+    if (entry.isDirectory) {
+      if (name === 'node_modules' || name === '.git' || name.charAt(0) === '.') return;
+      const reader = entry.createReader();
+      while (true) {
+        let batch = [];
+        try { batch = await readEntries(reader); } catch (e) { break; }
+        if (!batch || !batch.length) break;
+        for (const child of batch) await walkEntry(child, out);
+      }
+    }
+  }
+
+  async function walkHandle(handle, out, prefix) {
+    if (!handle) return;
+    const base = prefix || '';
+    if (handle.kind === 'file') {
+      try {
+        const file = await handle.getFile();
+        out.push({ file, path: base + file.name });
+      } catch (e) { /* skip unreadable handle */ }
+      return;
+    }
+    if (handle.kind === 'directory' && handle.entries) {
+      const name = handle.name || '';
+      if (name === 'node_modules' || name === '.git' || name.charAt(0) === '.') return;
+      try {
+        for await (const [, child] of handle.entries()) {
+          await walkHandle(child, out, base + name + '/');
+        }
+      } catch (e) { /* skip unreadable directory */ }
+    }
+  }
+
+  async function importDataTransfer(dt) {
+    if (!dt || !PT.tabs) return;
+
+    // Snapshot the native FileList synchronously. Chrome clears DataTransfer
+    // contents once the drop handler returns; reading it after an await loses
+    // the dropped file.
+    const flatFiles = Array.from(dt.files || []);
+    const items = Array.from(dt.items || []);
+    const entries = [];
+    const handlePromises = [];
+    items.forEach((item) => {
+      try {
+        const entry = item.webkitGetAsEntry && item.webkitGetAsEntry();
+        if (entry) entries.push(entry);
+      } catch (e) { /* ignore */ }
+      try {
+        // Modern Chromium fallback for directories whose Entry reader is
+        // unavailable. Start the promise synchronously, before the drop event
+        // loses its DataTransfer contents.
+        const handle = item.getAsFileSystemHandle && item.getAsFileSystemHandle();
+        if (handle) handlePromises.push(handle);
+      } catch (e) { /* ignore */ }
+    });
+
+    let records = flatFiles.map((file) => ({
+      file,
+      path: file.webkitRelativePath || file.name
+    }));
+
+    // Files are already available from dataTransfer.files. Only fall back to
+    // recursive entry walking for a directory drop (folder drag) or when the
+    // flat list is unexpectedly empty.
+    const hasDirectory = entries.some((entry) => entry && entry.isDirectory);
+    if (entries.length && (hasDirectory || !flatFiles.length)) {
+      const entryRecords = [];
+      for (const entry of entries) await walkEntry(entry, entryRecords);
+      const known = new Set(records.map((record) => record.path || (record.file && record.file.name)));
+      entryRecords.forEach((record) => {
+        if (!record || !record.file) return;
+        const path = record.path || record.file.name;
+        if (!known.has(path)) {
+          records.push({ file: record.file, path });
+          known.add(path);
+        }
+      });
+    }
+
+    // If Entry recursion did not yield an HTML file, fall back to the modern
+    // File System Access handles (directory handles can survive the drop event
+    // where Entry readers sometimes cannot).
+    const hasHtml = () => records.some((record) => record.file && /\.html?$/i.test(record.file.name || ''));
+    if (!hasHtml() && handlePromises.length) {
+      const settled = await Promise.allSettled(handlePromises);
+      const handleRecords = [];
+      for (const result of settled) {
+        if (result.status === 'fulfilled' && result.value) {
+          await walkHandle(result.value, handleRecords, '');
+        }
+      }
+      const known = new Set(records.map((record) => record.path || (record.file && record.file.name)));
+      handleRecords.forEach((record) => {
+        if (!record || !record.file) return;
+        const path = record.path || record.file.name;
+        if (!known.has(path)) {
+          records.push({ file: record.file, path });
+          known.add(path);
+        }
+      });
+    }
+
+    records = records.filter((record) => record && record.file);
+    records.sort((a, b) => String(a.path || '').localeCompare(String(b.path || ''), 'zh-CN'));
+    const htmlRecords = records
+      .filter((record) => record.file && /\.html?$/i.test(record.file.name || ''))
+      .slice(0, 24);
+    records = records.slice(0, 500);
+    if (!htmlRecords.length) {
+      Core.toast('没有找到可导入的 HTML 文件', 'info', 2400);
+      return;
+    }
+
+    let opened = 0;
+    let skipped = 0;
+    const seen = new Set();
+    const hasAssets = records.some((record) => record.file && !/\.html?$/i.test(record.file.name));
+    for (const record of htmlRecords) {
+      const file = record.file;
+      if (!file || file.size > 4 * 1024 * 1024) {
+        skipped++;
+        continue;
+      }
+      try {
+        const raw = await Core.readFileAsText(file);
+        const sourceHash = Core.hashString(raw);
+        const relativePath = record.path || file.name;
+        const key = sourceHash + '|' + relativePath;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        let htmlContent = raw;
+        if (PT.bundler && hasAssets) {
+          try {
+            htmlContent = await PT.bundler.bundle(raw, relativePath, records);
+          } catch (e) {
+            htmlContent = raw;
+          }
+        }
+        const before = PT.tabs.getAll().length;
+        const tab = await PT.tabs.openHtml({
+          fileName: file.name,
+          relativePath,
+          htmlContent,
+          sourceHash,
+          fresh: true
+        }, { silent: true });
+        if (tab && PT.tabs.getAll().length > before) opened++;
+        else if (tab) skipped++;
+      } catch (e) {
+        skipped++;
+      }
+    }
+    if (opened) Core.toast('已打开 ' + opened + ' 个文件' + (skipped ? '，跳过 ' + skipped + ' 个' : ''), 'success', 2600);
+    else Core.toast(skipped ? '没有新增文件，已跳过 ' + skipped + ' 个' : '没有新增文件', 'info', 2400);
+  }
+
+  function bindDrop() {
+    const canvas = document.getElementById('canvas');
+    const overlay = document.getElementById('pt-drop-overlay');
+    if (!canvas || !overlay) return;
+    let depth = 0;
+    const show = () => {
+      overlay.hidden = false;
+      canvas.classList.add('drag-over');
+    };
+    const hide = () => {
+      depth = 0;
+      overlay.hidden = true;
+      canvas.classList.remove('drag-over');
+    };
+    canvas.addEventListener('dragenter', (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      e.preventDefault();
+      depth++;
+      show();
+    });
+    canvas.addEventListener('dragover', (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      show();
+    });
+    canvas.addEventListener('dragleave', (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      depth = Math.max(0, depth - 1);
+      if (!depth) hide();
+    });
+    canvas.addEventListener('drop', async (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      hide();
+      await importDataTransfer(e.dataTransfer);
+    });
+    // Capture-phase fallback: a drop on a welcome child, text node, or browser
+    // chrome should still be handled even if a descendant stops bubbling.
+    document.addEventListener('dragover', (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      e.preventDefault();
+    }, true);
+    document.addEventListener('drop', (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      if (e.target && e.target.closest && e.target.closest('.modal')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      hide();
+      importDataTransfer(e.dataTransfer);
+    }, true);
+    window.addEventListener('dragover', (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      e.preventDefault();
+    });
+    window.addEventListener('drop', (e) => {
+      if (!hasFileDrag(e.dataTransfer)) return;
+      if (canvas.contains(e.target)) return;
+      if (e.target && e.target.closest && e.target.closest('#dropzone, .modal')) return;
+      e.preventDefault();
+      hide();
+      importDataTransfer(e.dataTransfer);
+    });
   }
 
   // ---------- Import ----------
-  let importTab = 'file';
   function bindImport() {
     const modal = document.getElementById('import-modal');
-    document.querySelectorAll('[data-import-tab]').forEach((b) => {
-      b.addEventListener('click', () => switchImportTab(b.dataset.importTab));
-    });
     document.getElementById('dz-pick').addEventListener('click', pickFile);
     document.getElementById('import-cancel').addEventListener('click', closeImportModal);
-    document.getElementById('paste-ok').addEventListener('click', () => {
-      const value = document.getElementById('paste-area').value.trim();
-      if (!value) return;
-      const html = /<html[\s>]/i.test(value)
-        ? value
-        : '<!doctype html><html><head><meta charset="utf-8"></head><body>' + value + '</body></html>';
-      closeImportModal();
-      loadDocument(html, { fileName: 'pasted.html', sourceHash: Core.hashString(html) });
-    });
     modal.addEventListener('click', (e) => { if (e.target === modal) closeImportModal(); });
     modal.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeImportModal();
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && importTab === 'paste') {
-        e.preventDefault();
-        document.getElementById('paste-ok').click();
-      }
     });
     const dz = document.getElementById('dropzone');
     ['dragenter', 'dragover'].forEach((ev) => {
@@ -711,39 +1130,46 @@
         loadFile(file, null);
       }
     });
-    window.addEventListener('drop', (e) => {
-      const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-      if (!file) return;
-      if (e.target && e.target.closest && e.target.closest('#dropzone')) return;
-      e.preventDefault();
-      loadFile(file, null);
-    });
-    window.addEventListener('dragover', (e) => {
-      if (e.dataTransfer && Array.from(e.dataTransfer.types || []).indexOf('Files') !== -1) e.preventDefault();
-    });
   }
 
   function openImportModal(tab) {
     document.getElementById('import-modal').hidden = false;
-    switchImportTab(tab || 'file');
-  }
-
-  function switchImportTab(tab) {
-    importTab = tab === 'paste' ? 'paste' : 'file';
-    document.querySelectorAll('[data-import-tab]').forEach((b) => b.classList.toggle('on', b.dataset.importTab === importTab));
-    document.querySelectorAll('[data-import-pane]').forEach((p) => { p.hidden = p.dataset.importPane !== importTab; });
-    document.getElementById('paste-ok').hidden = importTab !== 'paste';
-    if (importTab === 'paste') setTimeout(() => document.getElementById('paste-area').focus(), 0);
   }
 
   function closeImportModal() {
     document.getElementById('import-modal').hidden = true;
-    document.getElementById('paste-area').value = '';
   }
 
   // ---------- Modals ----------
+  function syncHelpTourPreference() {
+    const checkbox = document.getElementById('help-tour-dismiss');
+    if (!checkbox || !PT.storage || !PT.storage.loadTour) return;
+    const tour = PT.storage.loadTour();
+    checkbox.checked = !!(tour && tour.dismissed);
+  }
+
   function bindModals() {
     document.getElementById('help-close').addEventListener('click', () => { document.getElementById('help-modal').hidden = true; });
+    const tourDismiss = document.getElementById('help-tour-dismiss');
+    if (tourDismiss) {
+      tourDismiss.addEventListener('change', () => {
+        if (tourDismiss.checked) {
+          PT.storage.saveTour({ dismissed: true });
+          Core.toast('已关闭自动新手引导', 'info', 1800);
+        } else {
+          PT.storage.resetTour();
+          Core.toast('已恢复：加载示例时会显示新手引导', 'success', 2200);
+        }
+      });
+    }
+    syncHelpTourPreference();
+    const tourReset = document.getElementById('help-tour-reset');
+    if (tourReset) {
+      tourReset.addEventListener('click', async () => {
+        document.getElementById('help-modal').hidden = true;
+        await loadSample({ reload: true, forceTour: true });
+      });
+    }
     document.getElementById('help-modal').addEventListener('click', (e) => {
       if (e.target === document.getElementById('help-modal')) document.getElementById('help-modal').hidden = true;
     });
@@ -751,7 +1177,7 @@
 
   function closeAllModals() {
     if (PT.selectEditor && PT.selectEditor.isOpen()) PT.selectEditor.cancel();
-    ['import-modal', 'select-modal', 'table-modal', 'versions-modal', 'help-modal'].forEach((id) => {
+    ['import-modal', 'paste-code-modal', 'select-modal', 'table-modal', 'versions-modal', 'help-modal'].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.hidden = true;
     });
@@ -807,6 +1233,7 @@
           state.fileHandle = handle;
           state.fileName = handle.name || state.fileName;
           updateFileChip();
+          if (PT.tabs) PT.tabs.updateActiveFromApp(state.fileName, state.docId);
           await afterSave();
           Core.toast('已保存 ' + state.fileName, 'success');
           return;
@@ -832,29 +1259,15 @@
   async function afterSave() {
     await saveSessionNow();
     PT.versions.saveCurrent('export', '保存');
+    if (PT.tabs) PT.tabs.markSaved();
   }
 
   async function closeDocument() {
-    if (!state.loaded) return;
-    if (!window.confirm('关闭当前文件？批注会保留在浏览器中；下次需要重新导入文件，或用版本历史恢复。')) return;
-    PT.inspector.commitActive();
-    if (PT.drag) PT.drag.cancel();
-    if (PT.resize) PT.resize.cancel();
-    if (PT.table && PT.table.cancelSize) PT.table.cancelSize();
-    if (PT.ops) PT.ops.end();
-    PT.annotations.flush();
-    await saveSessionNow();
-    await PT.storage.clearLastSession();
-    PT.annotations.unload();
-    PT.history.clear();
-    PT.selection.clear({ silent: true });
-    if (PT.pages) PT.pages.clear();
-    state.loaded = false;
-    state.fileName = null;
-    state.fileHandle = null;
-    state.docId = null;
-    state.sourceHash = '';
-    state.mode = 'edit';
+    if (PT.tabs && PT.tabs.hasTabs()) {
+      const active = PT.tabs.getActive();
+      if (active) await PT.tabs.close(active.id);
+      return;
+    }
     showEmpty();
   }
 
@@ -896,6 +1309,14 @@
         PT.textEdit.finish({ commit: true });
         e.preventDefault();
         return;
+      }
+      if (PT.selection.getKind() === 'cell') {
+        const table = PT.selection.getTable();
+        if (table) {
+          PT.selection.selectTable(table, PT.selection.getActiveCell());
+          e.preventDefault();
+          return;
+        }
       }
       if (PT.selection.getSelected()) {
         PT.selection.clear();
@@ -982,6 +1403,7 @@
     const opts = options || {};
     const modal = document.getElementById('pt-confirm');
     if (!modal) return Promise.resolve(window.confirm(message));
+    if (PT.tour && PT.tour.isActive()) PT.tour.stop();
     if (confirmPending) settleConfirm(false);
     document.getElementById('pt-confirm-title').textContent = opts.title || '确认操作';
     document.getElementById('pt-confirm-message').textContent = message || '';
@@ -1009,7 +1431,7 @@
       settleConfirm(false);
       return true;
     }
-    const ids = ['help-modal', 'versions-modal', 'table-modal', 'select-modal', 'import-modal'];
+    const ids = ['help-modal', 'versions-modal', 'table-modal', 'select-modal', 'import-modal', 'paste-code-modal'];
     for (const id of ids) {
       const el = document.getElementById(id);
       if (el && !el.hidden) {
@@ -1033,12 +1455,34 @@
 
   // ---------- Window events ----------
   function bindWindowEvents() {
-    window.addEventListener('beforeunload', () => {
+    window.addEventListener('beforeunload', (event) => {
+      let message = '';
+      const dirty = PT.tabs
+        ? PT.tabs.getAll().filter((tab) => PT.tabs.isDirty(tab))
+        : [];
+      if (dirty.length) {
+        message = dirty.length === 1
+          ? '「' + (dirty[0].displayName || dirty[0].fileName || '当前文件') + '」有未保存的修改。是否保存此次更改？关闭前请确认。'
+          : '有 ' + dirty.length + ' 个文件存在未保存的修改。是否保存此次更改？关闭前请确认。';
+        // Modern browsers show their own translated confirmation. Setting
+        // returnValue is what enables the native leave/cancel prompt.
+        event.preventDefault();
+        event.returnValue = message;
+      }
+      if (PT.tabs) {
+        PT.tabs.snapshotActive();
+        PT.tabs.persist();
+      }
       PT.annotations.flush();
       saveSessionNow();
+      return message || undefined;
     });
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
+        if (PT.tabs) {
+          PT.tabs.snapshotActive();
+          PT.tabs.persist();
+        }
         PT.annotations.flush();
         saveSessionNow();
       }
@@ -1047,6 +1491,9 @@
       if (PT.stage) PT.stage.scheduleLayout();
       PT.annotationUI.positionCard();
     });
+    window.addEventListener('keydown', onInspectKeyDown, true);
+    window.addEventListener('keyup', onInspectKeyUp, true);
+    window.addEventListener('blur', () => setFastInspect(false));
   }
 
   // ---------- Public API ----------
@@ -1060,15 +1507,22 @@
     getDocId: () => state.docId,
     getSourceHash: () => state.sourceHash,
     loadDocument,
+    openTabDocument,
     loadFile,
+    loadSample,
     pickFile,
     saveDocument,
     setMode,
+    isFastInspect,
+    setFastInspect,
+    exitFastInspect,
     toggleAnnotation,
     exitAnnotation,
     updateStatus,
     updateFileChip,
     scheduleSessionSave,
+    showWelcome,
+    setRailTab,
     confirm: confirmAction
   };
 

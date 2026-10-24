@@ -12,18 +12,20 @@
   <div class="brand">
     <span class="brand-mark">P</span>
     <span class="brand-text">ProtoTweak</span>
+    <button class="pt-home-btn" id="btn-home" type="button" title="关闭所有并返回主页" aria-label="关闭所有并返回主页">
+      <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <path d="M3.5 9.2 10 3.8l6.5 5.4V16a1 1 0 0 1-1 1h-3.2v-4.2H7.7V17H4.5a1 1 0 0 1-1-1V9.2Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+      </svg>
+    </button>
     <span class="brand-tag">Prototype Review</span>
   </div>
   <div class="file-chip" id="file-chip" title="当前文件">未打开文件</div>
   <div class="page-switcher" id="page-switcher" hidden>
-    <span class="page-switcher-label">页面</span>
-    <select id="page-select" aria-label="页面切换" title="切换编辑页面"></select>
+    <span class="page-switcher-label">内部页面</span>
+    <select id="page-select" aria-label="当前文件内部页面切换" title="切换当前文件的内部页面"></select>
     <button class="icon-btn" id="page-rescan" type="button" title="重新扫描页面">↻</button>
-    <button class="icon-btn" id="page-add" type="button" title="手动添加页面选择器">＋</button>
   </div>
   <div class="actions">
-    <button class="btn" id="btn-import">导入</button>
-
     <div class="menu-wrap">
       <button class="btn" id="btn-insert" title="插入元素">+ 插入 <span class="caret">▾</span></button>
       <div class="menu" id="insert-menu" hidden>
@@ -46,7 +48,7 @@
 
     <div class="mode-switch" role="tablist" aria-label="模式切换">
       <button class="mode-btn on" id="mode-edit" data-mode="edit" title="编辑模式">编辑</button>
-      <button class="mode-btn" id="mode-preview" data-mode="preview" title="预览模式">预览</button>
+      <button class="mode-btn" id="mode-preview" data-mode="preview" title="预览模式；按住 Ctrl/Cmd 点击元素可穿透编辑">预览</button>
       <button class="mode-btn annotate-mode-btn" id="btn-annotate" type="button" title="批注模式">
         批注 <span class="count" id="annot-count">0</span>
       </button>
@@ -82,6 +84,23 @@
   </div>
 </header>
 
+<div class="pt-file-tabs" id="file-tabs" hidden>
+  <span class="pt-file-tabs-label">FILES</span>
+  <div class="pt-file-tabs-scroll" id="file-tabs-list" role="tablist" aria-label="打开的文件"></div>
+  <button class="pt-file-tab-add" id="file-tab-add" type="button" title="新增文件" aria-label="新增文件">+</button>
+</div>
+
+<div class="pt-tab-popover" id="tab-add-menu" hidden>
+  <button id="tab-add-file" type="button">
+    <span class="pt-tab-menu-icon">＋</span>
+    <span>从本地文件导入</span>
+  </button>
+  <button id="tab-add-paste" type="button">
+    <span class="pt-tab-menu-icon">&lt;/&gt;</span>
+    <span>粘贴 HTML 代码</span>
+  </button>
+</div>
+
 <div class="contextbar" id="table-context" hidden>
   <span class="context-title">表格</span>
   <span class="context-pill" id="table-context-label">0 行 × 0 列</span>
@@ -92,26 +111,47 @@
   <button class="btn small" data-table-op="col-del">- 列</button>
   <span class="sep"></span>
   <span class="context-cell" id="table-cell-label">—</span>
-  <span class="context-hint">单击整表后拖任意列/行边框调行列 · Alt+单击切换单元格 · 8 向缩放/拖拽整表 · 双击编辑文字</span>
+  <span class="context-hint" id="table-context-hint">整表：拖动/8向缩放 · 单击单元格进入 · 双击单元格编辑</span>
 </div>
 
 <main class="workbench pt-workbench">
   <section class="canvas pt-canvas" id="canvas">
-    <div id="empty-state" class="empty">
-      <div class="empty-card">
-        <div class="empty-eyebrow">AI PROTOTYPE → REVIEW</div>
-        <h1>打开 HTML，直接改</h1>
-        <p>导入 AI 生成的单文件原型，可视化微调、打点批注，最后导出干净版给开发，或带批注评审版给内部。</p>
-        <div class="empty-actions">
-          <button class="btn primary" id="btn-import-2">导入 HTML</button>
-          <button class="btn" id="btn-sample-2">载入示例</button>
+    <div id="empty-state" class="empty pt-welcome">
+      <div class="pt-welcome-inner">
+        <div class="pt-welcome-pill">
+          <strong>PROTOTWEAK</strong>
+          <span class="pt-pill-divider"></span>
+          <span>HTML PROTOTYPE WORKBENCH</span>
         </div>
-        <ul class="empty-tips">
-          <li>单击选中，双击文字编辑；拖拽移动不破坏文档流</li>
-          <li>选中表格后可增删行列、拖边框调列宽/行高</li>
-          <li>开启「✏️ 批注」后点击元素打点，批注不会进入干净导出</li>
-          <li>刷新页面会自动恢复上次草稿和批注</li>
-        </ul>
+
+        <h1>把 HTML 原型<br />变成可编辑的作品。</h1>
+        <p class="pt-welcome-lead">打开一个 HTML 文件，直接选中、修改、批注，然后导出干净代码或评审版本。</p>
+
+        <div class="pt-dropzone-wrap">
+          <div class="pt-welcome-dropzone" id="welcome-dropzone" tabindex="0" role="button" aria-label="浏览或拖拽导入 HTML">
+            <svg class="pt-dropzone-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <path d="M16 21V6m0 0-5 5m5-5 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M7 20v3.5A2.5 2.5 0 0 0 9.5 26h13a2.5 2.5 0 0 0 2.5-2.5V20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <div class="pt-dropzone-title">点击浏览文件或拖拽至此</div>
+            <div class="pt-dropzone-sub">支持单个 HTML 文件，或包含资源的整个项目文件夹</div>
+          </div>
+          <button class="pt-paste-code-btn" id="welcome-paste-code" type="button">
+            粘贴代码 <kbd>Ctrl+V</kbd>
+          </button>
+        </div>
+
+        <button class="pt-sample-link" id="btn-sample-2" type="button">
+          <span>想先看看效果？</span>
+          <strong>加载示例原型体验 →</strong>
+        </button>
+      </div>
+    </div>
+    <div id="pt-drop-overlay" class="pt-drop-overlay" hidden>
+      <div class="pt-drop-inner">
+        <div class="pt-drop-icon">↓</div>
+        <strong>松开以导入 HTML</strong>
+        <span>支持单个文件或整个文件夹</span>
       </div>
     </div>
     <iframe id="stage" title="原型编辑区" sandbox="allow-same-origin allow-scripts allow-modals" hidden></iframe>
@@ -249,6 +289,28 @@
             </div>
           </details>
 
+          <details class="grp" id="inspector-field-group" hidden>
+            <summary>表单字段</summary>
+            <div class="row">
+              <label>默认值</label>
+              <input id="ins-field-value" type="text" autocomplete="off" placeholder="value">
+            </div>
+            <div class="row">
+              <label>提示文本</label>
+              <input id="ins-field-placeholder" type="text" autocomplete="off" placeholder="placeholder">
+            </div>
+          </details>
+
+          <details class="grp" id="inspector-select-group" hidden>
+            <summary>选项管理</summary>
+            <div class="row">
+              <label>提示词</label>
+              <input id="ins-select-placeholder" type="text" autocomplete="off" placeholder="请选择…">
+            </div>
+            <div id="ins-option-list" class="ins-option-list"></div>
+            <button class="btn small" id="ins-option-add" type="button">+ 添加选项</button>
+          </details>
+
           <details class="grp" id="inspector-table-group" hidden>
             <summary>表格</summary>
             <div class="row">
@@ -256,6 +318,7 @@
               <label>单元格</label><span class="readonly-value" id="ins-table-cell">—</span>
             </div>
             <div class="row btns">
+              <button class="btn small" id="op-select-table">选择整表</button>
               <button class="btn small" data-table-op="row-add">+ 行</button>
               <button class="btn small" data-table-op="row-del">- 行</button>
               <button class="btn small" data-table-op="col-add">+ 列</button>
@@ -370,10 +433,6 @@
 <div class="modal" id="import-modal" hidden>
   <div class="modal-card">
     <h3>导入 HTML</h3>
-    <div class="import-tabs">
-      <button class="tab on" data-import-tab="file">上传文件</button>
-      <button class="tab" data-import-tab="paste">粘贴代码</button>
-    </div>
     <div class="tab-pane" data-import-pane="file">
       <div class="dropzone" id="dropzone">
         <div class="dz-icon">📄</div>
@@ -383,12 +442,27 @@
         <div class="dz-hint">支持 .html / .htm，UTF-8 编码；文件内容不会上传。</div>
       </div>
     </div>
-    <div class="tab-pane" data-import-pane="paste" hidden>
-      <textarea id="paste-area" placeholder="粘贴完整 HTML 或片段…"></textarea>
-    </div>
     <div class="modal-actions">
       <button class="btn" id="import-cancel">取消</button>
-      <button class="btn primary" id="paste-ok" hidden>载入</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal pt-code-modal" id="paste-code-modal" hidden>
+  <div class="modal-card pt-code-card" role="dialog" aria-modal="true" aria-labelledby="paste-code-title">
+    <div class="pt-code-head">
+      <h3 id="paste-code-title">预览并确认代码</h3>
+      <span class="pt-code-badge" id="code-type-badge">纯文本</span>
+      <button class="pt-code-close" id="paste-code-close" type="button" aria-label="关闭">×</button>
+    </div>
+    <div class="pt-code-editor">
+      <pre class="pt-code-lines" id="code-lines" aria-hidden="true">1</pre>
+      <textarea id="code-input" spellcheck="false" wrap="off" placeholder="在此粘贴完整 HTML 或代码片段…"></textarea>
+    </div>
+    <div class="pt-code-foot">
+      <span class="pt-code-hint">Ctrl+Enter 确认导入</span>
+      <button class="btn" id="paste-code-cancel" type="button">取消</button>
+      <button class="btn primary" id="paste-code-confirm" type="button">确认导入</button>
     </div>
   </div>
 </div>
@@ -443,25 +517,63 @@
 
 <!-- 帮助 -->
 <div class="modal" id="help-modal" hidden>
-  <div class="modal-card">
-    <h3>快捷键与说明</h3>
-    <div class="help-grid">
-      <div><kbd>单击</kbd><span>选中元素；表格单击选整表</span></div>
-      <div><kbd>Alt + 单击</kbd><span>指定表格单元格</span></div>
-      <div><kbd>双击</kbd><span>编辑文字；下拉框编辑选项</span></div>
-      <div><kbd>拖拽</kbd><span>移动元素，不破坏文档流</span></div>
-      <div><kbd>Ctrl/Cmd + C / V / X</kbd><span>复制 / 粘贴 / 剪切选中元素</span></div>
-      <div><kbd>Ctrl/Cmd + D</kbd><span>快速复制选中元素</span></div>
-      <div><kbd>Ctrl/Cmd + Z / Y</kbd><span>撤销 / 重做</span></div>
-      <div><kbd>Ctrl/Cmd + S</kbd><span>保存干净 HTML</span></div>
-      <div><kbd>Ctrl/Cmd + Shift + S</kbd><span>另存为</span></div>
-      <div><kbd>方向键 / Shift + 方向键</kbd><span>微调 1px / 10px</span></div>
-      <div><kbd>Delete / Backspace</kbd><span>删除选中元素（二次确认）</span></div>
-      <div><kbd>右键</kbd><span>复制、删除、编辑文字、添加批注</span></div>
-      <div><kbd>Esc</kbd><span>关闭卡片 / 退出批注 / 取消选中</span></div>
+  <div class="modal-card wide">
+    <h3>操作指南与快捷键</h3>
+    <p class="help-intro">默认状态下原型保持真实交互。按住 Ctrl（Mac 为 Cmd）再点击，才进入 ProtoTweak 的选中与编辑模式。</p>
+
+    <div class="help-section">
+      <h4>开始编辑</h4>
+      <ol class="help-steps">
+        <li><strong>导入：</strong>拖入 HTML / 文件夹，或点击 Tab 栏 <kbd>+</kbd> 选择文件、粘贴代码。</li>
+        <li><strong>选中：</strong>按住 <kbd>Ctrl/Cmd</kbd>，画布出现十字准星；点击元素出现实线蓝框与右侧面板。</li>
+        <li><strong>编辑：</strong>右侧面板修改文字、样式、尺寸；表单和下拉框在对应分组中编辑。</li>
+        <li><strong>拖动：</strong>选中元素后直接拖动；8 个手柄缩放。表格先选中整表，再拖动或整体缩放。</li>
+        <li><strong>交付：</strong>批注后导出干净 HTML、评审版、JSON 或 Markdown。</li>
+      </ol>
     </div>
-    <p class="help-note">请只加载可信 HTML。原型脚本在沙箱 iframe 中运行，预览与编辑模式都会保留原型的页面内交互。</p>
+
+    <div class="help-section">
+      <h4>选中与表格</h4>
+      <div class="help-grid">
+        <div><kbd>Ctrl/Cmd + 单击</kbd><span>选中元素；表格先选中整表</span></div>
+        <div><kbd>整表选中后再单击单元格</kbd><span>进入具体单元格</span></div>
+        <div><kbd>双击单元格</kbd><span>编辑单元格文字</span></div>
+        <div><kbd>Esc（单元格）</kbd><span>返回整表；再按取消选中</span></div>
+        <div><kbd>Alt + 单击表格</kbd><span>直接选中整表</span></div>
+        <div><kbd>单击原型其他位置</kbd><span>取消当前选中与编辑</span></div>
+        <div><kbd>右侧“选择整表”</kbd><span>从单元格回到整表状态</span></div>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <h4>快捷键</h4>
+      <div class="help-grid">
+        <div><kbd>Ctrl/Cmd + Z</kbd><span>撤销</span></div>
+        <div><kbd>Ctrl/Cmd + Y</kbd><span>重做</span></div>
+        <div><kbd>Ctrl/Cmd + C / V / X</kbd><span>复制 / 粘贴 / 剪切选中元素</span></div>
+        <div><kbd>Ctrl/Cmd + D</kbd><span>快速复制选中元素</span></div>
+        <div><kbd>Ctrl/Cmd + S</kbd><span>保存干净 HTML</span></div>
+        <div><kbd>Ctrl/Cmd + Shift + S</kbd><span>另存为</span></div>
+        <div><kbd>方向键 / Shift + 方向键</kbd><span>微调 1px / 10px</span></div>
+        <div><kbd>Delete / Backspace</kbd><span>删除选中元素（二次确认）</span></div>
+        <div><kbd>Esc</kbd><span>关闭弹窗 / 退出批注 / 取消选中</span></div>
+        <div><kbd>右键</kbd><span>复制、删除、编辑文字、添加批注</span></div>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <h4>页面、Tab 与批注</h4>
+      <ul class="help-list">
+        <li>顶部「内部页面」控制当前 HTML 原型内部页面，与文件 Tab 完全独立。</li>
+        <li>文件 Tab 切换会清空当前选中并加载该文件的批注数据。</li>
+        <li>批注模式下点击元素只创建批注点；右侧切到「批注」查看列表。</li>
+        <li>批注支持标记已解决、JSON 导入导出；批注数据保存在 localStorage。</li>
+      </ul>
+    </div>
+
+    <p class="help-note">请只加载可信 HTML。原型脚本在沙箱 iframe 中运行；默认保持原型原生交互，按住 Ctrl/Cmd 才进入选中模式。</p>
     <div class="modal-actions">
+      <button class="btn" id="help-tour-reset" type="button">重新载入示例并开始引导</button>
       <button class="btn primary" id="help-close">知道了</button>
     </div>
   </div>
@@ -478,12 +590,36 @@
   </div>
 </div>
 
-<input id="file-input" type="file" accept=".html,.htm,text/html" hidden>
+<div class="pt-tour" id="pt-tour" hidden>
+  <div class="pt-tour-spotlight" id="pt-tour-spotlight"></div>
+  <div class="pt-tour-card" id="pt-tour-card" role="dialog" aria-modal="true" aria-labelledby="pt-tour-title">
+    <div class="pt-tour-kicker">
+      <span id="pt-tour-step">1 / 6</span>
+      <span class="pt-tour-kicker-actions">
+        <button id="pt-tour-skip" class="pt-tour-skip" type="button">跳过</button>
+        <button id="pt-tour-close" class="pt-tour-close" type="button" aria-label="关闭引导">×</button>
+      </span>
+    </div>
+    <h3 id="pt-tour-title">双击文字，或右侧调样式。</h3>
+    <p id="pt-tour-desc"></p>
+    <label class="pt-tour-remember">
+      <input type="checkbox" id="pt-tour-remember" />
+      以后不再显示引导
+    </label>
+    <div class="pt-tour-actions">
+      <button id="pt-tour-prev" class="pt-text-button" type="button">上一步</button>
+      <button id="pt-tour-next" class="btn primary" type="button">下一步</button>
+    </div>
+  </div>
+</div>
+
+<input id="file-input" type="file" accept=".html,.htm,text/html" multiple hidden>
 <input id="annotation-file-input" type="file" accept=".json,application/json" hidden>
 <input id="image-file-input" type="file" accept="image/*" hidden>
 
 <script src="modules/core.js"></script>
 <script src="modules/storage.js"></script>
+<script src="modules/sample.js"></script>
 <script src="modules/stage.js"></script>
 <script src="modules/anchors.js"></script>
 <script src="modules/history.js"></script>
@@ -500,6 +636,10 @@
 <script src="modules/annotations.js"></script>
 <script src="modules/annotation-ui.js"></script>
 <script src="modules/context-menu.js"></script>
+<script src="modules/tabs.js"></script>
+<script src="modules/paste-code.js"></script>
+<script src="modules/resource-bundler.js"></script>
+<script src="modules/tour.js"></script>
 <script src="modules/versions.js"></script>
 <script src="modules/changelog.js"></script>
 <script src="modules/export.js"></script>

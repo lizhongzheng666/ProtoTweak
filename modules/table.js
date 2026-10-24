@@ -104,6 +104,12 @@
         const cell = currentCell();
         const pos = PT.selection.cellPosition(cell);
         document.getElementById('table-cell-label').textContent = pos ? 'R' + pos.row + 'C' + pos.col : '—';
+        const hint = document.getElementById('table-context-hint');
+        if (hint) {
+          hint.textContent = sel.kind === 'table'
+            ? '整表：拖动/8向缩放 · 单击单元格进入 · 双击单元格编辑'
+            : '单元格：双击编辑 · Esc/右侧「选择整表」返回整表';
+        }
       }
     }
     if (!visible || !sel || (busy() && !sizeDrag)) hideHandles();
@@ -528,8 +534,18 @@
     const scale = tableScale(table);
     const rowRect = tr.getBoundingClientRect();
     const rowHeight = tr.offsetHeight || (rowRect.height / (scale.y || 1));
+    const win = tr.ownerDocument.defaultView;
     let contentMin = MIN_ROW;
-    Array.from(tr.cells).forEach((c) => { contentMin = Math.max(contentMin, c.scrollHeight + 2); });
+    Array.from(tr.cells).forEach((c) => {
+      const cs = win.getComputedStyle(c);
+      const line = parseFloat(cs.lineHeight) ||
+        (parseFloat(cs.fontSize) || 14) * 1.4;
+      const pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+      const border = (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0);
+      // Use the cell's intrinsic line box, not scrollHeight: scrollHeight grows
+      // with the current inline height and made rows impossible to shrink.
+      contentMin = Math.max(contentMin, Math.ceil(line + pad + border));
+    });
     const point = eventPoint(e);
     sizeDrag = {
       type: 'row',
@@ -583,6 +599,17 @@
       if (drag.type === 'col') {
         ensureColgroup(drag.table, drag.widths);
         drag.cols = Array.from(drag.table.querySelectorAll('colgroup > col'));
+      }
+      if (drag.type === 'row') {
+        // Row height is applied to the row and every cell. Force border-box so
+        // the assigned height includes padding/borders and can shrink instead
+        // of growing by the cell's box model padding.
+        drag.tr.style.boxSizing = 'border-box';
+        drag.tr.style.minHeight = MIN_ROW + 'px';
+        drag.cells.forEach((cell) => {
+          cell.style.boxSizing = 'border-box';
+          cell.style.minHeight = MIN_ROW + 'px';
+        });
       }
       drag.prepared = true;
     }

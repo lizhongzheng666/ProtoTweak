@@ -14,6 +14,7 @@
   const PREFS_KEY = 'prototweak_annotation_prefs_v1';
   const FALLBACK_SESSION_KEY = 'prototweak_session_fallback_v1';
   const FALLBACK_VERSIONS_PREFIX = 'prototweak_versions_fallback_v1:';
+  const TOUR_KEY = 'prototweak_tour_v1';
   const MAX_VERSIONS = 30;
   const LEGACY_ANNOTATION_PREFIX = 'wb.annotations.v1:';
   const LEGACY_KEYS = {
@@ -211,6 +212,11 @@
         warnOnce('ann-save', '批注保存失败，请导出 JSON。');
         return false;
       }
+    },
+
+    removeAnnotations(docId) {
+      if (!docId) return;
+      lsRemove(Storage.annotationKey(docId));
     },
 
     loadPrefs() {
@@ -411,6 +417,30 @@
       }
       const last = lsGet(LAST_DOC_KEY);
       if (last === docId) lsRemove(LAST_DOC_KEY);
+    },
+
+    loadTour() {
+      const raw = lsGet(TOUR_KEY);
+      if (!raw) return { dismissed: false };
+      try {
+        const data = JSON.parse(raw);
+        return { dismissed: !!data.dismissed, dismissedAt: data.dismissedAt || '' };
+      } catch (e) {
+        return { dismissed: false };
+      }
+    },
+
+    saveTour(data) {
+      const value = {
+        dismissed: !!(data && data.dismissed),
+        dismissedAt: data && data.dismissed ? (data.dismissedAt || Core.nowIso()) : ''
+      };
+      lsSet(TOUR_KEY, JSON.stringify(value));
+      return value;
+    },
+
+    resetTour() {
+      lsRemove(TOUR_KEY);
     }
   };
 

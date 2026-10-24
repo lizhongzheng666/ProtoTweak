@@ -46,7 +46,8 @@
     const cs = win.getComputedStyle(el);
     if (cs.position === 'absolute' || cs.position === 'fixed') return 'absolute';
     if (cs.display === 'inline' && !REPLACED.has(el.tagName)) return 'relative';
-    if (supportsTranslate()) return 'translate';
+    // Use transform: translate() for in-flow elements so dragging never
+    // changes document flow.
     return 'transform';
   }
 
@@ -58,7 +59,7 @@
   }
 
   function getOffset(el) {
-    if (!el) return { x: 0, y: 0, mode: 'translate' };
+    if (!el) return { x: 0, y: 0, mode: 'transform' };
     const win = el.ownerDocument.defaultView;
     const cs = win.getComputedStyle(el);
     const m = modeFor(el);
@@ -172,13 +173,20 @@
 
     const target = e.target;
     if (!target || target.nodeType !== 1) return;
-    if (PT.core.isEditableTarget(target)) return;
-    if (target.closest('[contenteditable="true"]')) return;
-
     const sel = PT.selection ? PT.selection.get() : null;
     const targetTable = target.closest ? target.closest('table') : null;
     let dragEl = null;
     let tableDrag = false;
+
+    if (target.closest('[contenteditable="true"]')) return;
+
+    if (PT.core.isEditableTarget(target)) {
+      // Form controls keep native behavior until explicitly selected with
+      // Ctrl/Cmd. Once selected they can be dragged from the canvas.
+      const selectedControl = sel && sel.kind === 'element' && sel.element &&
+        (target === sel.element || sel.element.contains(target));
+      if (!selectedControl) return;
+    }
 
     if (sel && sel.kind === 'cell') return;
 
@@ -190,15 +198,17 @@
       } else {
         return;
       }
+    } else if (sel && sel.kind === 'element' && sel.element) {
+      // Native interactions stay available unless the user explicitly selected
+      // this element (Ctrl/Cmd click). Dragging is limited to the selection.
+      if (target === sel.element || sel.element.contains(target)) dragEl = sel.element;
+      else return;
     } else if (targetTable) {
       // A click on a table first selects the whole table. Do not start a drag
       // before that state exists; this avoids fighting cell selection.
       return;
-    } else if (sel && sel.kind === 'element' && sel.element) {
-      if (target === sel.element || sel.element.contains(target)) dragEl = sel.element;
-      else dragEl = target;
     } else {
-      dragEl = target;
+      return;
     }
 
     if (!dragEl || dragEl.nodeType !== 1) return;
@@ -222,9 +232,10 @@
       historyStarted: false
     };
 
-    try {
-      if (dragEl.setPointerCapture) dragEl.setPointerCapture(e.pointerId);
-    } catch (err) { /* ignore */ }
+    // Do not capture the pointer on pointerdown. Capturing a table on a
+    // simple click retargets the subsequent click to the table itself, which
+    // prevents drilling into a cell or double-clicking cell text. Capture is
+    // acquired only after the movement threshold is crossed.
     void sel;
   }
 
@@ -258,6 +269,11 @@
       }
       pending.state = beginMove(pending.el);
       pending.started = true;
+      try {
+        if (pending.el.setPointerCapture) {
+          pending.el.setPointerCapture(pending.pointerId);
+        }
+      } catch (err) { /* synthetic or unsupported pointer */ }
       if (PT.stage) PT.stage.setInteractionStyle(true, 'grabbing');
     }
 

@@ -48,7 +48,7 @@
 
   function onClick(e) {
     if (!ready()) return;
-    if (mode() === 'preview' || annotationMode()) return;
+    if (annotationMode()) return;
     if (PT.pages && PT.pages.isSwitching()) return;
     if (PT.textEdit && PT.textEdit.isEditing()) return;
     if (PT.drag && PT.drag.consumeClickSuppression()) {
@@ -58,39 +58,107 @@
     }
 
     const target = e.target;
-    if (!target || target.nodeType !== 1) {
-      clear();
-      return;
-    }
+    if (!target || target.nodeType !== 1) return;
     const doc = PT.stage.getDoc();
     if (target === doc.documentElement || target === doc.body) {
-      clear();
+      if (get().element) clear();
       return;
     }
-
-    // Keep the prototype's own click behavior. Only non-interactive canvas
-    // clicks prevent text selection; links/buttons/inputs/selects/onclick
-    // elements must still receive their native click and JS handlers.
-    const interactive = target.closest
-      ? target.closest('a, button, input, select, textarea, label, [contenteditable="true"], [role="button"], [role="link"], [onclick], [data-go], [data-href]')
-      : null;
-    if (!interactive) e.preventDefault();
 
     const table = target.closest ? target.closest('table') : null;
-    if (table) {
-      const cell = target.closest('td, th');
-      // Whole table is the default click target. Alt+click (or a second
-      // explicit cell action) opts into the cell/row-column size mode.
-      if (e.altKey && cell) selectCell(cell);
-      else selectTable(table, cell || contextCellIn(table) || firstCell(table));
+    const cell = target.closest ? target.closest('td, th') : null;
+
+    // Alt+click is a modifier-only affordance for whole-table selection, so
+    // the table can be dragged without fighting cell selection.
+    if (e.altKey && table) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (mode() === 'preview' && PT.app && PT.app.setMode) PT.app.setMode('edit');
+      selectTable(table, cell);
       return;
     }
-    select(target);
+
+    const inspect = (PT.app && PT.app.isFastInspect && PT.app.isFastInspect()) || e.ctrlKey || e.metaKey;
+    if (!inspect) {
+      const current = get().element;
+      if (!current) return;
+
+      // Whole-table selection is a temporary state: the next plain click on a
+      // cell drills into that cell (or its precise descendant for editing).
+      if (isTable() && table && table === current) {
+        if (cell) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          selectCell(cell);
+        }
+        return;
+      }
+
+      // Once inside a table cell, a plain click on another cell moves the
+      // cell selection; clicking outside the table ends editing.
+      if (isCell() && cell && get().table && cell.closest('table') === get().table) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        selectCell(cell);
+        return;
+      }
+
+      // A plain click outside the selected element ends the editing selection
+      // but still lets the prototype receive its native click.
+      if (current !== target && !current.contains(target)) clear();
+      return;
+    }
+    if (PT.app && !PT.app.isFastInspect()) PT.app.setFastInspect(true);
+
+    // Selection only happens while Ctrl/Cmd is held. This is the "inspect"
+    // layer; without it the prototype keeps its native click behavior.
+    e.preventDefault();
+    e.stopImmediatePropagation();
+
+    // Ctrl/Cmd + click anywhere in a table selects the whole table first.
+    // A second Ctrl/Cmd + click on a cell drills into that cell, so users do
+    // not have to release the modifier between the two steps.
+    if (table) {
+      if (cell && ((isTable() && table === get().element) || (isCell() && table === get().table))) {
+        selectCell(cell);
+        return;
+      }
+      if (mode() === 'preview' && PT.app && PT.app.setMode) PT.app.setMode('edit');
+      selectTable(table, cell);
+      return;
+    }
+    const picked = pickTarget(target);
+    if (!picked) clear();
+    else {
+      if (mode() === 'preview' && PT.app && PT.app.setMode) PT.app.setMode('edit');
+      select(picked);
+    }
+  }
+
+  function pickTarget(target) {
+    if (!target || target.nodeType !== 1) return null;
+    const doc = PT.stage.getDoc();
+    if (target === doc.documentElement || target === doc.body) return null;
+    const cell = target.closest ? target.closest('td, th') : null;
+    if (cell) {
+      // Clicking the cell itself selects the cell; clicking text or a control
+      // inside it selects that precise node.
+      return target === cell ? cell : target;
+    }
+    const table = target.closest ? target.closest('table') : null;
+    if (table) return table;
+    return target;
   }
 
   function onOver(e) {
     if (!ready()) return;
-    if (mode() === 'preview') return;
+    if (!PT.app || !PT.app.isFastInspect || !PT.app.isFastInspect()) {
+      if (hovered) {
+        hovered = null;
+        render();
+      }
+      return;
+    }
     const target = e.target;
     if (!target || target.nodeType !== 1) return;
     const doc = PT.stage.getDoc();
@@ -136,9 +204,22 @@
       selectCell(el, opts);
       return;
     }
+    const cell = el.closest ? el.closest('td, th') : null;
+    if (cell) {
+      // Precise descendant selection inside a table cell (text tag, input,
+      // button, image, etc.). Do not collapse it to the whole table.
+      selected = el;
+      kind = 'element';
+      tableEl = cell.closest('table');
+      contextCell = cell;
+      hovered = null;
+      emitChange(opts);
+      render();
+      return;
+    }
     const table = el.closest ? el.closest('table') : null;
     if (table) {
-      selectTable(table, el.closest('td, th') || firstCell(table), opts);
+      selectTable(table, contextCellIn(table) || firstCell(table), opts);
       return;
     }
     selected = el;
@@ -227,6 +308,11 @@
   function isTable() { return kind === 'table' && selected && selected.tagName === 'TABLE'; }
   function isCell() { return kind === 'cell'; }
 
+  function clearHover() {
+    hovered = null;
+    render();
+  }
+
   function cellPosition(cell) {
     if (!cell) return null;
     const table = cell.closest('table');
@@ -255,7 +341,7 @@
       lab.className = 'sel-label ' + (cls.indexOf('cell') !== -1 ? 'cell-label' : '');
       lab.textContent = label;
       lab.style.left = Math.max(0, rect.left) + 'px';
-      lab.style.top = Math.max(0, rect.top - 20) + 'px';
+      lab.style.top = Math.max(0, rect.top - 24) + 'px';
       layer.appendChild(lab);
     }
   }
@@ -263,7 +349,8 @@
   function render() {
     if (!layer) return;
     layer.innerHTML = '';
-    if (!ready() || mode() === 'preview' || annotationMode()) return;
+    if (!ready() || annotationMode()) return;
+    if (mode() === 'preview' && !(PT.app && PT.app.isFastInspect && PT.app.isFastInspect())) return;
 
     if (hovered && hovered !== selected && !(selected && selected.contains(hovered))) {
       try {
@@ -295,7 +382,7 @@
         lab.className = 'sel-label cell-label';
         lab.textContent = '单元格 ' + (pos ? 'R' + pos.row + 'C' + pos.col : '');
         lab.style.left = Math.max(0, rect.left) + 'px';
-        lab.style.top = Math.max(0, rect.top - 20) + 'px';
+        lab.style.top = Math.max(0, rect.top - 24) + 'px';
         layer.appendChild(lab);
       } catch (e) { /* ignore */ }
       return;
@@ -328,6 +415,7 @@
     getKind,
     isTable,
     isCell,
+    clearHover,
     firstCell,
     cellPosition,
     render

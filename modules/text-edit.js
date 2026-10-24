@@ -36,15 +36,13 @@
     const target = e.target;
     if (!target || target.nodeType !== 1) return;
 
-    if (target.tagName === 'SELECT') {
-      e.preventDefault();
-      e.stopPropagation();
-      if (PT.selectEditor) PT.selectEditor.open(target);
+    if (target.tagName === 'SELECT' || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+      // Form controls are edited from the right-side inspector. Do not open a
+      // canvas editor or select them without the Ctrl/Cmd inspect modifier.
       return;
     }
 
     if (!isEditable(target)) {
-      if (PT.selection) PT.selection.select(target);
       return;
     }
 

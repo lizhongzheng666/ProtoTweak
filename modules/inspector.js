@@ -14,15 +14,18 @@
   let disabled = false;
   let syncing = false;
   let nudgeTimer = null;
+  let optionListEl = null;
 
   const COLOR_PROPS = new Set(['color', 'background-color', 'border-color']);
   const UNITLESS = new Set(['opacity', 'line-height', 'font-weight', 'z-index']);
+  const FIELD_TAGS = new Set(['INPUT', 'TEXTAREA']);
 
   function init() {
     bodyEl = document.getElementById('inspector-body');
     emptyEl = document.getElementById('inspector-empty');
     tagEl = document.getElementById('ins-tag');
     pathEl = document.getElementById('ins-path');
+    optionListEl = document.getElementById('ins-option-list');
 
     document.getElementById('inspector').addEventListener('focusin', onFocusIn);
     document.getElementById('inspector').addEventListener('focusout', onFocusOut);
@@ -34,6 +37,15 @@
         e.target.blur();
       }
     });
+
+    document.getElementById('ins-option-add').addEventListener('click', addOption);
+    if (optionListEl) {
+      optionListEl.addEventListener('click', (e) => {
+        const btn = e.target.closest && e.target.closest('[data-option-delete]');
+        if (!btn) return;
+        removeOption(Number(btn.dataset.optionDelete));
+      });
+    }
 
     Core.$$('.seg[data-align] button').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -65,6 +77,12 @@
     document.getElementById('op-down').addEventListener('click', () => moveSibling(1));
     document.getElementById('op-delete').addEventListener('click', deleteSelected);
     document.getElementById('op-clear-style').addEventListener('click', clearStyle);
+    document.getElementById('op-select-table').addEventListener('click', () => {
+      if (!canEdit()) return;
+      const table = PT.selection.getTable();
+      if (!table) return;
+      PT.selection.selectTable(table, PT.selection.getActiveCell());
+    });
 
     Core.on('selection:change', sync);
     Core.on('layout', () => {
@@ -105,6 +123,20 @@
     } else if (field.id === 'ins-text') {
       fieldBefore = el.textContent || '';
       beginField(field, 'text-content', Core.truncate(Core.normalizeText(fieldBefore), 60));
+    } else if (field.id === 'ins-field-value') {
+      fieldBefore = el.value || '';
+      beginField(field, 'form-value', Core.truncate(fieldBefore, 80));
+    } else if (field.id === 'ins-field-placeholder') {
+      fieldBefore = el.getAttribute('placeholder') || '';
+      beginField(field, 'form-placeholder', Core.truncate(fieldBefore, 80));
+    } else if (field.id === 'ins-select-placeholder') {
+      const ph = el.querySelector('option[data-pt-placeholder]');
+      fieldBefore = ph ? ph.textContent : '';
+      beginField(field, 'select-placeholder', Core.truncate(fieldBefore, 80));
+    } else if (field.dataset.optionField) {
+      const opt = getOption(Number(field.dataset.optionIndex), field.dataset.optionField);
+      fieldBefore = opt ? (field.dataset.optionField === 'value' ? opt.value : opt.textContent) : '';
+      beginField(field, 'option-' + field.dataset.optionField, Core.truncate(fieldBefore, 80));
     } else {
       const prop = field.dataset.css;
       if (!prop) return;
@@ -153,6 +185,22 @@
       applyText(field);
       return;
     }
+    if (field.id === 'ins-field-value') {
+      applyFieldValue(field);
+      return;
+    }
+    if (field.id === 'ins-field-placeholder') {
+      applyFieldPlaceholder(field);
+      return;
+    }
+    if (field.id === 'ins-select-placeholder') {
+      applySelectPlaceholder(field);
+      return;
+    }
+    if (field.dataset.optionField) {
+      applyOptionField(field);
+      return;
+    }
     if (field.dataset.move) {
       applyMove(field);
       return;
@@ -177,6 +225,20 @@
     } else if (field.id === 'ins-text') {
       fieldBefore = el.textContent || '';
       beginField(field, 'text-content', Core.truncate(Core.normalizeText(fieldBefore), 60));
+    } else if (field.id === 'ins-field-value') {
+      fieldBefore = el.value || '';
+      beginField(field, 'form-value', Core.truncate(fieldBefore, 80));
+    } else if (field.id === 'ins-field-placeholder') {
+      fieldBefore = el.getAttribute('placeholder') || '';
+      beginField(field, 'form-placeholder', Core.truncate(fieldBefore, 80));
+    } else if (field.id === 'ins-select-placeholder') {
+      const ph = el.querySelector('option[data-pt-placeholder]');
+      fieldBefore = ph ? ph.textContent : '';
+      beginField(field, 'select-placeholder', Core.truncate(fieldBefore, 80));
+    } else if (field.dataset.optionField) {
+      const opt = getOption(Number(field.dataset.optionIndex), field.dataset.optionField);
+      fieldBefore = opt ? (field.dataset.optionField === 'value' ? opt.value : opt.textContent) : '';
+      beginField(field, 'option-' + field.dataset.optionField, Core.truncate(fieldBefore, 80));
     } else if (field.dataset.css) {
       const prop = field.dataset.css;
       fieldBefore = currentStyleValue(el, prop);
@@ -187,9 +249,163 @@
   function applyText(field) {
     const el = PT.selection.getSelected();
     if (!el) return;
+    if (FIELD_TAGS.has(el.tagName) || el.tagName === 'SELECT') return;
     if (!isLeafText(el)) return;
     el.textContent = field.value;
+    emitFieldEvents(el);
     if (PT.history) PT.history.updateMeta({ after: Core.truncate(field.value, 60) });
+    if (PT.stage) PT.stage.scheduleLayout();
+  }
+
+  function applyFieldValue(field) {
+    const el = PT.selection.getSelected();
+    if (!el || !FIELD_TAGS.has(el.tagName)) return;
+    el.value = field.value;
+    if (el.tagName === 'INPUT') el.setAttribute('value', field.value);
+    else el.textContent = field.value;
+    emitFieldEvents(el);
+    if (PT.history) PT.history.updateMeta({ after: Core.truncate(field.value, 80) });
+    if (PT.stage) PT.stage.scheduleLayout();
+  }
+
+  function applyFieldPlaceholder(field) {
+    const el = PT.selection.getSelected();
+    if (!el || !FIELD_TAGS.has(el.tagName)) return;
+    if (field.value) el.setAttribute('placeholder', field.value);
+    else el.removeAttribute('placeholder');
+    emitFieldEvents(el);
+    if (PT.history) PT.history.updateMeta({ after: Core.truncate(field.value, 80) });
+    if (PT.stage) PT.stage.scheduleLayout();
+  }
+
+  function applySelectPlaceholder(field) {
+    const select = PT.selection.getSelected();
+    if (!select || select.tagName !== 'SELECT') return;
+    const doc = select.ownerDocument;
+    let opt = select.querySelector('option[data-pt-placeholder]');
+    const text = field.value || '';
+
+    if (!text.trim()) {
+      if (opt) {
+        const wasSelected = opt.selected;
+        opt.remove();
+        if (wasSelected && select.options.length) select.selectedIndex = 0;
+      }
+    } else {
+      if (!opt) {
+        opt = doc.createElement('option');
+        opt.dataset.ptPlaceholder = '1';
+        opt.value = '';
+        opt.disabled = true;
+        const hasExplicitSelected = Array.from(select.options).some((o) => o.hasAttribute('selected'));
+        opt.selected = !hasExplicitSelected;
+        select.insertBefore(opt, select.firstChild);
+      }
+      opt.textContent = text;
+      if (select.selectedIndex < 0) opt.selected = true;
+    }
+
+    emitFieldEvents(select);
+    if (PT.history) PT.history.updateMeta({ after: Core.truncate(text, 80) });
+    if (PT.stage) PT.stage.scheduleLayout();
+  }
+
+  function emitFieldEvents(el) {
+    if (!el) return;
+    try {
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    } catch (e) { /* ignore */ }
+  }
+
+  function getOption(index, field) {
+    const select = PT.selection.getSelected();
+    if (!select || select.tagName !== 'SELECT') return null;
+    return select.options[index] || null;
+  }
+
+  function applyOptionField(field) {
+    const opt = getOption(Number(field.dataset.optionIndex), field.dataset.optionField);
+    if (!opt) return;
+    if (field.dataset.optionField === 'value') opt.value = field.value;
+    else opt.textContent = field.value;
+    const select = opt.closest('select');
+    emitFieldEvents(select || opt);
+    if (PT.history) PT.history.updateMeta({ after: Core.truncate(field.value, 80) });
+    if (PT.stage) PT.stage.scheduleLayout();
+  }
+
+  function renderOptions(select) {
+    if (!optionListEl) return;
+    optionListEl.innerHTML = '';
+    const realOptions = select && select.tagName === 'SELECT'
+      ? Array.from(select.options).filter((opt) => !opt.hasAttribute('data-pt-placeholder'))
+      : [];
+    if (!realOptions.length) {
+      const empty = document.createElement('div');
+      empty.className = 'ins-option-empty';
+      empty.textContent = '还没有选项';
+      optionListEl.appendChild(empty);
+      return;
+    }
+    realOptions.forEach((opt) => {
+      const row = document.createElement('div');
+      row.className = 'ins-option-row';
+      const index = Array.prototype.indexOf.call(select.options, opt);
+      const label = document.createElement('input');
+      label.type = 'text';
+      label.value = opt.textContent || '';
+      label.placeholder = '显示文字';
+      label.dataset.optionIndex = String(index);
+      label.dataset.optionField = 'label';
+      const value = document.createElement('input');
+      value.type = 'text';
+      value.value = opt.value;
+      value.placeholder = 'value';
+      value.dataset.optionIndex = String(index);
+      value.dataset.optionField = 'value';
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.textContent = '×';
+      del.title = '删除选项';
+      del.dataset.optionDelete = String(index);
+      row.append(label, value, del);
+      optionListEl.appendChild(row);
+    });
+  }
+
+  function addOption() {
+    const select = PT.selection.getSelected();
+    if (!select || select.tagName !== 'SELECT' || !canEdit()) return;
+    if (PT.history) {
+      PT.history.begin('添加下拉选项', {
+        kind: 'select-options',
+        target: label(select)
+      });
+    }
+    const opt = select.ownerDocument.createElement('option');
+    const n = select.options.length + 1;
+    opt.textContent = '选项 ' + n;
+    opt.value = 'value-' + n;
+    select.appendChild(opt);
+    if (PT.history) PT.history.end(true);
+    renderOptions(select);
+    if (PT.stage) PT.stage.scheduleLayout();
+  }
+
+  function removeOption(index) {
+    const select = PT.selection.getSelected();
+    if (!select || select.tagName !== 'SELECT' || !canEdit()) return;
+    if (!select.options[index]) return;
+    if (PT.history) {
+      PT.history.begin('删除下拉选项', {
+        kind: 'select-options',
+        target: label(select)
+      });
+    }
+    select.options[index].remove();
+    if (PT.history) PT.history.end(true);
+    renderOptions(select);
     if (PT.stage) PT.stage.scheduleLayout();
   }
 
@@ -264,7 +480,7 @@
       bodyEl.hidden = true;
       emptyEl.hidden = false;
       emptyEl.querySelector('.empty-title').textContent = '未选中元素';
-      emptyEl.querySelector('.empty-desc').textContent = '单击页面元素查看和修改样式。';
+      emptyEl.querySelector('.empty-desc').textContent = '按住 Ctrl/Cmd 单击元素查看和修改样式。';
       return;
     }
     bodyEl.hidden = false;
@@ -283,8 +499,35 @@
       document.getElementById('ins-text').value = el.textContent || '';
     }
     const textField = document.getElementById('ins-text');
-    textField.disabled = disabled || !isLeafText(el);
-    textField.placeholder = isLeafText(el) ? '输入文案…' : '含子元素，请双击页面内编辑';
+    const textDisabled = FIELD_TAGS.has(el.tagName) || el.tagName === 'SELECT' || !isLeafText(el);
+    textField.disabled = disabled || textDisabled;
+    textField.placeholder = FIELD_TAGS.has(el.tagName) || el.tagName === 'SELECT'
+      ? '表单控件请使用上方字段编辑'
+      : (isLeafText(el) ? '输入文案…' : '含子元素，请双击页面内编辑');
+
+    const fieldGroup = document.getElementById('inspector-field-group');
+    const isField = FIELD_TAGS.has(el.tagName);
+    if (fieldGroup) fieldGroup.hidden = !isField;
+    if (isField) {
+      setVal('ins-field-value', el.value || '');
+      const placeholderField = document.getElementById('ins-field-placeholder');
+      if (placeholderField && document.activeElement !== placeholderField) {
+        placeholderField.value = el.getAttribute('placeholder') || '';
+      }
+    }
+
+    const selectGroup = document.getElementById('inspector-select-group');
+    const isSelect = el.tagName === 'SELECT';
+    if (selectGroup) selectGroup.hidden = !isSelect;
+    if (isSelect) {
+      const ph = el.querySelector('option[data-pt-placeholder]');
+      setVal('ins-select-placeholder', ph ? ph.textContent : '');
+    }
+    if (isSelect && optionListEl && !optionListEl.contains(document.activeElement)) {
+      renderOptions(el);
+    } else if (!isSelect && optionListEl) {
+      optionListEl.innerHTML = '';
+    }
 
     setCssField('font-family', cs.fontFamily || '');
     setCssField('font-size', Math.round(parseFloat(cs.fontSize) || 0));
@@ -313,10 +556,12 @@
     });
 
     const tableGroup = document.getElementById('inspector-table-group');
-    if (PT.selection.isTable()) {
+    const tableForGroup = PT.selection.getTable();
+    if (PT.selection.isTable() || (PT.selection.isCell() && tableForGroup)) {
       tableGroup.hidden = false;
+      const table = PT.selection.isTable() ? el : tableForGroup;
       const pos = PT.selection.cellPosition(PT.selection.getActiveCell());
-      document.getElementById('ins-table-label').textContent = tableSize(el);
+      document.getElementById('ins-table-label').textContent = tableSize(table);
       document.getElementById('ins-table-cell').textContent = pos ? 'R' + pos.row + 'C' + pos.col : '—';
     } else {
       tableGroup.hidden = true;
@@ -400,7 +645,7 @@
       const el = PT.selection.getSelected();
       if (el) {
         const textField = document.getElementById('ins-text');
-        if (textField) textField.disabled = !isLeafText(el);
+        if (textField) textField.disabled = FIELD_TAGS.has(el.tagName) || el.tagName === 'SELECT' || !isLeafText(el);
       }
     }
   }

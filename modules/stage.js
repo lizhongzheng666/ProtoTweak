@@ -22,6 +22,7 @@
   const EDIT_STYLE_ID = '__pt_edit_style';
   const MODE_STYLE_ID = '__pt_mode_style';
   const DRAG_STYLE_ID = '__pt_drag_style';
+  const INSPECT_STYLE_ID = '__pt_inspect_style';
 
   const Stage = {
     init(opts) {
@@ -91,7 +92,17 @@
       style.textContent = [
         'html { scroll-snap-type: none !important; scroll-behavior: auto !important; }',
         '*, *::before, *::after { pointer-events: auto !important; }',
-        'a { cursor: pointer; }',
+        '*, *::before, *::after {',
+        '  -webkit-user-drag: none !important;',
+        '  user-drag: none !important;',
+        '  -webkit-user-select: none !important;',
+        '  user-select: none !important;',
+        '}',
+        'input, textarea, [contenteditable="true"], [data-pt-ce] {',
+        '  -webkit-user-select: text !important;',
+        '  user-select: text !important;',
+        '}',
+        'a, button, select, input, textarea, label { cursor: pointer; }',
         '.fade-in, .fade-up, .reveal, .animate-on-scroll,',
         '[class*="fade-in"], [class*="fade-up"] {',
         '  opacity: 1 !important;',
@@ -117,6 +128,21 @@
       if (!style) {
         style = doc.createElement('style');
         style.id = MODE_STYLE_ID;
+        (doc.head || doc.documentElement).appendChild(style);
+      }
+      style.textContent = 'html, body, body * { cursor: crosshair !important; }';
+    },
+
+    setInspectCursor(on) {
+      if (!doc) return;
+      let style = doc.getElementById(INSPECT_STYLE_ID);
+      if (!on) {
+        if (style) style.remove();
+        return;
+      }
+      if (!style) {
+        style = doc.createElement('style');
+        style.id = INSPECT_STYLE_ID;
         (doc.head || doc.documentElement).appendChild(style);
       }
       style.textContent = 'html, body, body * { cursor: crosshair !important; }';
@@ -254,8 +280,8 @@
       const keepAid = !!(opts && opts.keepAid);
       const clone = doc.documentElement.cloneNode(true);
       const junk = clone.querySelectorAll(
-        '#' + EDIT_STYLE_ID + ', #' + MODE_STYLE_ID + ', #' + DRAG_STYLE_ID +
-        ', #__pt_page_style, #__pt_viewport_style, #__wb_page_style, #__wb_viewport_style, #__wb_edit_style, #__wb_mode_style, #__wb_drag_style,' +
+        '#' + EDIT_STYLE_ID + ', #' + MODE_STYLE_ID + ', #' + DRAG_STYLE_ID + ', #' + INSPECT_STYLE_ID +
+        ', #__pt_page_style, #__pt_viewport_style, #__wb_page_style, #__wb_viewport_style, #__wb_edit_style, #__wb_mode_style, #__wb_drag_style, #__wb_inspect_style,' +
         ' [data-pt-ui], [data-wb-ui], script[data-pt-viewer], script[data-wb-viewer], style[data-pt-viewer], style[data-wb-viewer], #__pt_annotation_data, #__wb_annotation_data'
       );
       junk.forEach((n) => n.remove());

@@ -1,8 +1,8 @@
 {
   "name": "prototweak",
-  "version": "1.0.0",
+  "version": "1.11.5",
   "private": true,
-  "description": "ProtoTweak - offline HTML prototype editor with visual tweaks, multi-page review and annotations.",
+  "description": "ProtoTweak - offline multi-file HTML prototype editor with visual tweaks, multi-page review, annotations, paste-code import and guided onboarding.",
   "license": "MIT",
   "type": "module",
   "scripts": {

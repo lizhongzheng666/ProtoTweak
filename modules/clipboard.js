@@ -128,6 +128,10 @@
       }
     }
 
+    // When nothing is selected, plain text/HTML is treated as pasted code by
+    // the paste-code dialog instead of being inserted at an arbitrary point.
+    if (!PT.selection || !PT.selection.getSelected()) return;
+
     const custom = data.getData(CUSTOM_TYPE) || data.getData(LEGACY_CUSTOM_TYPE);
     const html = custom || data.getData('text/html');
     if (html && /<\/?[a-z][\s\S]*>/i.test(html)) {
