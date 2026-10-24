@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>ProtoTweak — HTML 原型编辑与批注</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="stylesheet" href="proto-style.css" />
+</head>
+<body class="no-doc pt-app">
+
+<header class="topbar pt-topbar">
+  <div class="brand">
+    <span class="brand-mark">P</span>
+    <span class="brand-text">ProtoTweak</span>
+    <span class="brand-tag">Prototype Review</span>
+  </div>
+  <div class="file-chip" id="file-chip" title="当前文件">未打开文件</div>
+  <div class="page-switcher" id="page-switcher" hidden>
+    <span class="page-switcher-label">页面</span>
+    <select id="page-select" aria-label="页面切换" title="切换编辑页面"></select>
+    <button class="icon-btn" id="page-rescan" type="button" title="重新扫描页面">↻</button>
+    <button class="icon-btn" id="page-add" type="button" title="手动添加页面选择器">＋</button>
+  </div>
+  <div class="actions">
+    <button class="btn" id="btn-import">导入</button>
+
+    <div class="menu-wrap">
+      <button class="btn" id="btn-insert" title="插入元素">+ 插入 <span class="caret">▾</span></button>
+      <div class="menu" id="insert-menu" hidden>
+        <button data-insert="text"><span class="menu-ico">¶</span>文本段</button>
+        <button data-insert="heading"><span class="menu-ico">H</span>标题</button>
+        <button data-insert="button"><span class="menu-ico">▭</span>按钮</button>
+        <button data-insert="image"><span class="menu-ico">🖼</span>图片</button>
+        <button data-insert="divider"><span class="menu-ico">—</span>分割线</button>
+        <button data-insert="container"><span class="menu-ico">□</span>容器</button>
+        <button data-insert="list"><span class="menu-ico">≡</span>列表</button>
+        <div class="menu-sep"></div>
+        <button data-insert="table"><span class="menu-ico">▦</span>表格…</button>
+      </div>
+    </div>
+
+    <span class="sep"></span>
+    <button class="icon-btn" id="btn-undo" title="撤销 Ctrl+Z" disabled>↶</button>
+    <button class="icon-btn" id="btn-redo" title="重做 Ctrl+Y" disabled>↷</button>
+    <span class="sep"></span>
+
+    <div class="mode-switch" role="tablist" aria-label="模式切换">
+      <button class="mode-btn on" id="mode-edit" data-mode="edit" title="编辑模式">编辑</button>
+      <button class="mode-btn" id="mode-preview" data-mode="preview" title="预览模式">预览</button>
+      <button class="mode-btn annotate-mode-btn" id="btn-annotate" type="button" title="批注模式">
+        批注 <span class="count" id="annot-count">0</span>
+      </button>
+    </div>
+
+    <button class="btn" id="btn-save" title="保存 Ctrl+S">保存</button>
+
+    <div class="menu-wrap">
+      <button class="btn primary" id="btn-export">导出 <span class="caret">▾</span></button>
+      <div class="menu" id="export-menu" hidden>
+        <button data-export="clean"><span class="menu-ico">◻</span>干净 HTML（给开发）</button>
+        <button data-export="review"><span class="menu-ico">✏️</span>评审版 HTML（含批注）</button>
+        <div class="menu-sep"></div>
+        <button data-export="annotations"><span class="menu-ico">{ }</span>批注 JSON</button>
+        <button data-export="markdown"><span class="menu-ico">MD</span>变更摘要 Markdown</button>
+        <div class="menu-sep"></div>
+        <button data-export="pdf"><span class="menu-ico">PDF</span>打印 / 导出 PDF</button>
+      </div>
+    </div>
+
+    <div class="menu-wrap">
+      <button class="icon-btn" id="btn-more" title="更多">⋯</button>
+      <div class="menu" id="more-menu" hidden>
+        <button id="menu-baseline"><span class="menu-ico">◷</span>保存版本基线</button>
+        <button id="menu-versions"><span class="menu-ico">☰</span>版本历史…</button>
+        <button id="menu-summary"><span class="menu-ico">MD</span>导出变更摘要</button>
+        <div class="menu-sep"></div>
+        <button id="menu-import-annotations"><span class="menu-ico">⇧</span>导入批注 JSON…</button>
+        <button id="menu-close"><span class="menu-ico">×</span>关闭当前文件</button>
+        <button id="menu-help"><span class="menu-ico">?</span>快捷键与说明</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="contextbar" id="table-context" hidden>
+  <span class="context-title">表格</span>
+  <span class="context-pill" id="table-context-label">0 行 × 0 列</span>
+  <span class="sep"></span>
+  <button class="btn small" data-table-op="row-add">+ 行</button>
+  <button class="btn small" data-table-op="row-del">- 行</button>
+  <button class="btn small" data-table-op="col-add">+ 列</button>
+  <button class="btn small" data-table-op="col-del">- 列</button>
+  <span class="sep"></span>
+  <span class="context-cell" id="table-cell-label">—</span>
+  <span class="context-hint">单击整表后拖任意列/行边框调行列 · Alt+单击切换单元格 · 8 向缩放/拖拽整表 · 双击编辑文字</span>
+</div>
+
+<main class="workbench pt-workbench">
+  <section class="canvas pt-canvas" id="canvas">
+    <div id="empty-state" class="empty">
+      <div class="empty-card">
+        <div class="empty-eyebrow">AI PROTOTYPE → REVIEW</div>
+        <h1>打开 HTML，直接改</h1>
+        <p>导入 AI 生成的单文件原型，可视化微调、打点批注，最后导出干净版给开发，或带批注评审版给内部。</p>
+        <div class="empty-actions">
+          <button class="btn primary" id="btn-import-2">导入 HTML</button>
+          <button class="btn" id="btn-sample-2">载入示例</button>
+        </div>
+        <ul class="empty-tips">
+          <li>单击选中，双击文字编辑；拖拽移动不破坏文档流</li>
+          <li>选中表格后可增删行列、拖边框调列宽/行高</li>
+          <li>开启「✏️ 批注」后点击元素打点，批注不会进入干净导出</li>
+          <li>刷新页面会自动恢复上次草稿和批注</li>
+        </ul>
+      </div>
+    </div>
+    <iframe id="stage" title="原型编辑区" sandbox="allow-same-origin allow-scripts allow-modals" hidden></iframe>
+    <div id="selection-layer" class="overlay-layer" aria-hidden="true"></div>
+    <div id="table-layer" class="overlay-layer" aria-hidden="true"></div>
+    <div id="resize-layer" class="overlay-layer" aria-hidden="true"></div>
+    <div id="annotation-layer" class="overlay-layer" aria-hidden="true"></div>
+  </section>
+
+  <aside class="rail pt-rail" id="rail">
+    <div class="rail-tabs" role="tablist">
+      <button class="rail-tab on" data-rail-tab="style">样式</button>
+      <button class="rail-tab" data-rail-tab="annot">批注 <span class="rail-tab-count" id="annot-tab-count">0</span></button>
+    </div>
+
+    <div class="rail-pane" id="style-pane">
+      <div id="inspector">
+        <div id="inspector-empty" class="inspector-empty">
+          <div class="empty-title">未选中元素</div>
+          <div class="empty-desc">单击页面元素查看和修改样式。</div>
+        </div>
+        <div id="inspector-body" hidden>
+          <div class="ins-header">
+            <span class="ins-tag" id="ins-tag">—</span>
+            <span class="ins-path" id="ins-path"></span>
+          </div>
+
+          <details class="grp" open>
+            <summary>位置与尺寸</summary>
+            <div class="row two">
+              <label>X</label><input id="ins-x" type="number" data-move="x" step="1">
+              <label>Y</label><input id="ins-y" type="number" data-move="y" step="1">
+            </div>
+            <div class="row">
+              <label>宽度</label><input id="ins-width" type="text" data-css="width" placeholder="auto / 200px / 50%">
+            </div>
+            <div class="row">
+              <label>高度</label><input id="ins-height" type="text" data-css="height" placeholder="auto / 200px">
+            </div>
+            <div class="row">
+              <button class="btn small" id="op-reset-pos" title="重置位置偏移">重置位置偏移</button>
+            </div>
+          </details>
+
+          <details class="grp" open>
+            <summary>文字</summary>
+            <div class="row">
+              <label>文案</label>
+              <textarea id="ins-text" rows="2" placeholder="输入文案…"></textarea>
+            </div>
+            <div class="row">
+              <label>字体</label>
+              <input id="ins-font-family" type="text" data-css="font-family" placeholder="font-family">
+            </div>
+            <div class="row two">
+              <label>字号</label><input id="ins-font-size" type="number" data-css="font-size" data-unit="px" min="8" max="200">
+              <label>行高×</label><input id="ins-line-height" type="number" data-css="line-height" step="0.05" min="0.8" max="3">
+            </div>
+            <div class="row two">
+              <label>字重</label>
+              <select id="ins-font-weight" data-css="font-weight">
+                <option value="">默认</option>
+                <option value="300">300 细</option>
+                <option value="400">400 常规</option>
+                <option value="500">500 中</option>
+                <option value="600">600 半粗</option>
+                <option value="700">700 粗</option>
+                <option value="800">800 特粗</option>
+              </select>
+              <label>字距</label><input id="ins-letter-spacing" type="number" data-css="letter-spacing" data-unit="px" step="0.1">
+            </div>
+            <div class="row">
+              <label>对齐</label>
+              <div class="seg" data-align>
+                <button type="button" data-val="left">左</button>
+                <button type="button" data-val="center">中</button>
+                <button type="button" data-val="right">右</button>
+                <button type="button" data-val="justify">两端</button>
+              </div>
+            </div>
+            <div class="row">
+              <label>颜色</label>
+              <input id="ins-color" type="color" data-css="color">
+              <input id="ins-color-hex" type="text" class="hex" data-css="color" placeholder="#000">
+            </div>
+          </details>
+
+          <details class="grp">
+            <summary>背景与外观</summary>
+            <div class="row">
+              <label>背景色</label>
+              <input id="ins-bg" type="color" data-css="background-color">
+              <input id="ins-bg-hex" type="text" class="hex" data-css="background-color" placeholder="#fff">
+            </div>
+            <div class="row">
+              <label>透明度</label>
+              <input id="ins-opacity" type="number" data-css="opacity" min="0" max="1" step="0.05">
+            </div>
+            <div class="row two">
+              <label>边框</label>
+              <input id="ins-border-width" type="number" data-css="border-width" data-unit="px" min="0" max="20">
+              <select id="ins-border-style" data-css="border-style">
+                <option value="">无</option>
+                <option value="solid">实线</option>
+                <option value="dashed">虚线</option>
+                <option value="dotted">点线</option>
+                <option value="double">双线</option>
+              </select>
+            </div>
+            <div class="row">
+              <label>边框色</label>
+              <input id="ins-border-color" type="color" data-css="border-color">
+            </div>
+            <div class="row two">
+              <label>圆角</label><input id="ins-radius" type="number" data-css="border-radius" data-unit="px" min="0" max="200">
+              <label>阴影</label><input id="ins-shadow" type="text" data-css="box-shadow" placeholder="none">
+            </div>
+          </details>
+
+          <details class="grp">
+            <summary>间距</summary>
+            <div class="row four">
+              <label>内边距</label>
+              <input id="ins-pad-top" type="number" data-css="padding-top" data-unit="px" placeholder="上">
+              <input id="ins-pad-right" type="number" data-css="padding-right" data-unit="px" placeholder="右">
+              <input id="ins-pad-bottom" type="number" data-css="padding-bottom" data-unit="px" placeholder="下">
+              <input id="ins-pad-left" type="number" data-css="padding-left" data-unit="px" placeholder="左">
+            </div>
+            <div class="row four">
+              <label>外边距</label>
+              <input id="ins-margin-top" type="number" data-css="margin-top" data-unit="px" placeholder="上">
+              <input id="ins-margin-right" type="number" data-css="margin-right" data-unit="px" placeholder="右">
+              <input id="ins-margin-bottom" type="number" data-css="margin-bottom" data-unit="px" placeholder="下">
+              <input id="ins-margin-left" type="number" data-css="margin-left" data-unit="px" placeholder="左">
+            </div>
+          </details>
+
+          <details class="grp" id="inspector-table-group" hidden>
+            <summary>表格</summary>
+            <div class="row">
+              <label>尺寸</label><span class="readonly-value" id="ins-table-label">—</span>
+              <label>单元格</label><span class="readonly-value" id="ins-table-cell">—</span>
+            </div>
+            <div class="row btns">
+              <button class="btn small" data-table-op="row-add">+ 行</button>
+              <button class="btn small" data-table-op="row-del">- 行</button>
+              <button class="btn small" data-table-op="col-add">+ 列</button>
+              <button class="btn small" data-table-op="col-del">- 列</button>
+            </div>
+          </details>
+
+          <details class="grp">
+            <summary>操作</summary>
+            <div class="row btns">
+              <button class="btn small" id="op-duplicate" title="复制一份 Ctrl+D">复制一份</button>
+              <button class="btn small" id="op-up">上移</button>
+              <button class="btn small" id="op-down">下移</button>
+            </div>
+            <div class="row btns">
+              <button class="btn small danger" id="op-delete" title="删除元素 Delete">删除</button>
+              <button class="btn small" id="op-clear-style" title="清除内联样式">清除内联样式</button>
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+
+    <div class="rail-pane" id="annot-pane" hidden>
+      <div class="ann-tools">
+        <div class="ann-filters">
+          <button class="chip on" data-annot-filter="all">全部</button>
+          <button class="chip" data-annot-filter="open">未解决</button>
+          <button class="chip" data-annot-filter="resolved">已解决</button>
+          <button class="chip" data-annot-filter="orphan">孤立</button>
+        </div>
+        <label class="check-inline ann-preview-check">
+          <input type="checkbox" id="ann-preview-toggle"> 预览时显示批注点
+        </label>
+        <div class="ann-io">
+          <button class="btn small" id="ann-import-btn">导入 JSON</button>
+          <button class="btn small" id="ann-export-btn">导出 JSON</button>
+        </div>
+      </div>
+      <div class="ann-list" id="ann-list"></div>
+    </div>
+  </aside>
+</main>
+
+<footer class="statusbar pt-statusbar">
+  <span id="status-file">未打开文件</span>
+  <span id="status-selection" class="status-selection"></span>
+  <span class="grow"></span>
+  <span class="status-shortcuts" aria-hidden="true">
+    <kbd>Ctrl</kbd><kbd>Z</kbd> 撤销
+    <kbd>Ctrl</kbd><kbd>S</kbd> 保存
+    <kbd>Del</kbd> 删除
+  </span>
+  <span id="status-save" class="status-muted"></span>
+  <span id="status-annot" class="status-muted"></span>
+  <span id="status-mode" class="status-mode">编辑模式</span>
+</footer>
+
+<div id="annotation-banner" class="banner" hidden>
+  <span class="banner-dot"></span>
+  <span id="annotation-banner-text">批注模式</span>
+  <button class="banner-exit" id="annotation-banner-exit">退出</button>
+</div>
+
+<div id="ann-card" class="ann-card" hidden>
+  <div class="ann-card-head">
+    <span class="ann-card-seq" id="ann-card-seq">#1</span>
+    <select id="ann-card-type" class="ann-type-select" aria-label="批注类型">
+      <option value="字段含义" selected>字段含义</option>
+      <option value="业务逻辑">业务逻辑</option>
+      <option value="边界情况">边界情况</option>
+      <option value="交互说明">交互说明</option>
+    </select>
+    <button class="ann-card-close" id="ann-card-close" type="button" title="关闭">×</button>
+  </div>
+  <div class="ann-orphan" id="ann-card-orphan" hidden>
+    <strong>孤立批注</strong>
+    <span id="ann-card-orphan-text">元素已不存在。</span>
+  </div>
+  <textarea id="ann-card-content" class="ann-card-content" rows="4" placeholder="写清楚要跟开发确认什么…"></textarea>
+  <div class="ann-card-row">
+    <span class="ann-card-label">状态</span>
+    <div class="seg status-seg">
+      <button type="button" class="status-btn on" data-status="open">未解决</button>
+      <button type="button" class="status-btn" data-status="resolved">已解决</button>
+    </div>
+  </div>
+  <div class="ann-card-row">
+    <span class="ann-card-label">PRD</span>
+    <input id="ann-card-prd" type="text" placeholder="PRD 章节 / 需求编号（可选）">
+  </div>
+  <div class="ann-anchor">
+    <div class="ann-anchor-head">
+      <span>锚点</span>
+      <button type="button" id="ann-card-copy">复制选择器</button>
+    </div>
+    <code id="ann-card-selector">—</code>
+    <div class="ann-anchor-text" id="ann-card-text"></div>
+  </div>
+  <div class="ann-card-time" id="ann-card-time"></div>
+  <div class="ann-card-actions">
+    <button class="btn small" id="ann-card-reanchor" type="button">重新锚定</button>
+    <button class="btn small danger" id="ann-card-delete" type="button" title="删除批注 Delete">删除</button>
+    <span class="grow"></span>
+    <button class="btn small primary" id="ann-card-save" type="button">完成</button>
+  </div>
+</div>
+
+<div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+<!-- 导入 HTML -->
+<div class="modal" id="import-modal" hidden>
+  <div class="modal-card">
+    <h3>导入 HTML</h3>
+    <div class="import-tabs">
+      <button class="tab on" data-import-tab="file">上传文件</button>
+      <button class="tab" data-import-tab="paste">粘贴代码</button>
+    </div>
+    <div class="tab-pane" data-import-pane="file">
+      <div class="dropzone" id="dropzone">
+        <div class="dz-icon">📄</div>
+        <div class="dz-title">拖入 .html 文件到此处</div>
+        <div class="dz-or">或</div>
+        <button class="btn primary" id="dz-pick">选择本地文件</button>
+        <div class="dz-hint">支持 .html / .htm，UTF-8 编码；文件内容不会上传。</div>
+      </div>
+    </div>
+    <div class="tab-pane" data-import-pane="paste" hidden>
+      <textarea id="paste-area" placeholder="粘贴完整 HTML 或片段…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="import-cancel">取消</button>
+      <button class="btn primary" id="paste-ok" hidden>载入</button>
+    </div>
+  </div>
+</div>
+
+<!-- 下拉选项编辑 -->
+<div class="modal" id="select-modal" hidden>
+  <div class="modal-card wide">
+    <h3>编辑下拉选项</h3>
+    <div id="select-option-list" class="select-option-list"></div>
+    <div class="select-modal-foot">
+      <button class="btn small" id="select-add-row">+ 添加选项</button>
+      <label class="check-inline"><input type="checkbox" id="select-multiple"> 允许多选</label>
+    </div>
+    <datalist id="select-group-list"></datalist>
+    <div class="modal-actions">
+      <button class="btn" id="select-cancel">取消</button>
+      <button class="btn primary" id="select-save">保存选项</button>
+    </div>
+  </div>
+</div>
+
+<!-- 插入表格 -->
+<div class="modal" id="table-modal" hidden>
+  <div class="modal-card small">
+    <h3>插入表格</h3>
+    <div class="row two">
+      <label>行数</label><input id="table-rows" type="number" min="1" max="20" value="3">
+      <label>列数</label><input id="table-cols" type="number" min="1" max="20" value="3">
+    </div>
+    <label class="check-inline table-header-check"><input type="checkbox" id="table-header" checked> 首行为表头</label>
+    <div class="modal-actions">
+      <button class="btn" id="table-cancel">取消</button>
+      <button class="btn primary" id="table-insert">插入</button>
+    </div>
+  </div>
+</div>
+
+<!-- 版本历史 -->
+<div class="modal" id="versions-modal" hidden>
+  <div class="modal-card wide">
+    <h3>版本基线</h3>
+    <div class="version-toolbar">
+      <button class="btn primary small" id="version-save">保存当前为基线并下载</button>
+      <span class="modal-hint">自动快照最多保留 30 个；下载的基线是干净 HTML。</span>
+    </div>
+    <div id="version-list" class="version-list"></div>
+    <div class="modal-actions">
+      <button class="btn" id="version-close">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 帮助 -->
+<div class="modal" id="help-modal" hidden>
+  <div class="modal-card">
+    <h3>快捷键与说明</h3>
+    <div class="help-grid">
+      <div><kbd>单击</kbd><span>选中元素；表格单击选整表</span></div>
+      <div><kbd>Alt + 单击</kbd><span>指定表格单元格</span></div>
+      <div><kbd>双击</kbd><span>编辑文字；下拉框编辑选项</span></div>
+      <div><kbd>拖拽</kbd><span>移动元素，不破坏文档流</span></div>
+      <div><kbd>Ctrl/Cmd + C / V / X</kbd><span>复制 / 粘贴 / 剪切选中元素</span></div>
+      <div><kbd>Ctrl/Cmd + D</kbd><span>快速复制选中元素</span></div>
+      <div><kbd>Ctrl/Cmd + Z / Y</kbd><span>撤销 / 重做</span></div>
+      <div><kbd>Ctrl/Cmd + S</kbd><span>保存干净 HTML</span></div>
+      <div><kbd>Ctrl/Cmd + Shift + S</kbd><span>另存为</span></div>
+      <div><kbd>方向键 / Shift + 方向键</kbd><span>微调 1px / 10px</span></div>
+      <div><kbd>Delete / Backspace</kbd><span>删除选中元素（二次确认）</span></div>
+      <div><kbd>右键</kbd><span>复制、删除、编辑文字、添加批注</span></div>
+      <div><kbd>Esc</kbd><span>关闭卡片 / 退出批注 / 取消选中</span></div>
+    </div>
+    <p class="help-note">请只加载可信 HTML。原型脚本在沙箱 iframe 中运行，预览与编辑模式都会保留原型的页面内交互。</p>
+    <div class="modal-actions">
+      <button class="btn primary" id="help-close">知道了</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="pt-confirm" hidden>
+  <div class="modal-card small" role="dialog" aria-modal="true" aria-labelledby="pt-confirm-title">
+    <h3 id="pt-confirm-title">确认操作</h3>
+    <p id="pt-confirm-message" class="modal-hint"></p>
+    <div class="modal-actions">
+      <button class="btn" id="pt-confirm-cancel" type="button">取消</button>
+      <button class="btn danger" id="pt-confirm-ok" type="button">确认</button>
+    </div>
+  </div>
+</div>
+
+<input id="file-input" type="file" accept=".html,.htm,text/html" hidden>
+<input id="annotation-file-input" type="file" accept=".json,application/json" hidden>
+<input id="image-file-input" type="file" accept="image/*" hidden>
+
+<script src="modules/core.js"></script>
+<script src="modules/storage.js"></script>
+<script src="modules/stage.js"></script>
+<script src="modules/anchors.js"></script>
+<script src="modules/history.js"></script>
+<script src="modules/selection.js"></script>
+<script src="modules/text-edit.js"></script>
+<script src="modules/select-editor.js"></script>
+<script src="modules/drag.js"></script>
+<script src="modules/table.js"></script>
+<script src="modules/resize.js"></script>
+<script src="modules/pages.js"></script>
+<script src="modules/inspector.js"></script>
+<script src="modules/insert.js"></script>
+<script src="modules/clipboard.js"></script>
+<script src="modules/annotations.js"></script>
+<script src="modules/annotation-ui.js"></script>
+<script src="modules/context-menu.js"></script>
+<script src="modules/versions.js"></script>
+<script src="modules/changelog.js"></script>
+<script src="modules/export.js"></script>
+<script src="editor.js"></script>
+</body>
+</html>

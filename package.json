@@ -1,0 +1,11 @@
+{
+  "name": "prototweak",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ProtoTweak - offline HTML prototype editor with visual tweaks, multi-page review and annotations.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "node tools/build-single-file.mjs"
+  }
+}

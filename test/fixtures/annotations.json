@@ -1,0 +1,66 @@
+{
+  "schema": "html-workbench.annotations/v1",
+  "doc": {
+    "fileName": "prototype.html",
+    "title": "验收测试原型 — 订单确认页",
+    "sourceHash": "",
+    "exportedAt": "2026-10-22T12:00:00.000Z"
+  },
+  "nextSeq": 3,
+  "annotations": [
+    {
+      "id": "ann_fixture_1",
+      "seq": 1,
+      "selector": "#order-table > tbody > tr:nth-of-type(2) > td:nth-of-type(2)",
+      "textSnapshot": "3",
+      "content": "团队席位的数量是否允许后续增减？开发需要确认数量编辑的入口。",
+      "type": "question",
+      "status": "open",
+      "createdAt": "2026-10-22T11:20:00.000Z",
+      "updatedAt": "2026-10-22T11:25:00.000Z",
+      "prdRef": "PRD-3.2 订单确认",
+      "replies": [
+        {
+          "id": "reply_fixture_1",
+          "content": "待后端确认是否支持部分退订。",
+          "createdAt": "2026-10-22T11:24:00.000Z"
+        }
+      ],
+      "anchor": {
+        "aid": "",
+        "tag": "td",
+        "id": "",
+        "classes": [],
+        "text": "3",
+        "ancestorTrail": ["table#order-table", "div.card", "body"],
+        "index": 1,
+        "rect": { "x": 360, "y": 420, "w": 120, "h": 40 }
+      },
+      "lastRect": { "x": 360, "y": 420, "w": 120, "h": 40 }
+    },
+    {
+      "id": "ann_fixture_2",
+      "seq": 2,
+      "selector": "#pay-method",
+      "textSnapshot": "银行卡 支付宝 微信支付",
+      "content": "支付方式建议默认选中上一次使用的渠道，而不是固定支付宝。",
+      "type": "suggestion",
+      "status": "resolved",
+      "createdAt": "2026-10-22T11:30:00.000Z",
+      "updatedAt": "2026-10-22T11:42:00.000Z",
+      "prdRef": "PRD-5.1 支付",
+      "replies": [],
+      "anchor": {
+        "aid": "",
+        "tag": "select",
+        "id": "pay-method",
+        "classes": [],
+        "text": "银行卡 支付宝 微信支付",
+        "ancestorTrail": ["div.actions", "body"],
+        "index": 2,
+        "rect": { "x": 420, "y": 620, "w": 130, "h": 40 }
+      },
+      "lastRect": { "x": 420, "y": 620, "w": 130, "h": 40 }
+    }
+  ]
+}
